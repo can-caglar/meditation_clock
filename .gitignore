@@ -138,3 +138,6 @@ dask-worker-space/
 
 # tmp directory
 tmp/
+
+qview/build_spy/
+qview/build/
