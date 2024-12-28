@@ -483,7 +483,21 @@ me-&gt;fork[n] = FREE;</action>
      <exit brief="disarm-timer">(void)QTimeEvt_disarm(&amp;me-&gt;timeEvt);</exit>
      <!--${AOs::Meditation::SM::get_time::TIMEOUT}-->
      <tran trig="TIMEOUT">
-      <action brief="read-time">BSP_getTime();</action>
+      <action brief="read-time">struct tm t = BSP_getTime();</action>
+      <!--${AOs::Meditation::SM::get_time::TIMEOUT::[between-5-am-and-7-am]}-->
+      <choice target="../../2">
+       <guard brief="between-5-am-and-7-am">(t.tm_hour &gt;= 5) &amp;&amp; (t.tm_hour &lt; 7)</guard>
+       <choice_glyph conn="19,23,4,3,-3,20">
+        <action box="-1,-6,19,2"/>
+       </choice_glyph>
+      </choice>
+      <!--${AOs::Meditation::SM::get_time::TIMEOUT::[else]}-->
+      <choice>
+       <guard brief="else"/>
+       <choice_glyph conn="19,23,5,-1,5">
+        <action box="1,0,10,2"/>
+       </choice_glyph>
+      </choice>
       <tran_glyph conn="5,23,3,-1,14">
        <action box="0,-2,11,4"/>
       </tran_glyph>
@@ -502,12 +516,54 @@ BSP_setTime(time);</action>
        <action box="0,-2,10,2"/>
       </tran_glyph>
      </tran>
-     <state_glyph node="5,10,28,25">
+     <!--${AOs::Meditation::SM::get_time::meditation_until_7}-->
+     <state name="meditation_until_7">
+      <entry brief="lights-on/play-sound">BSP_ledOn();
+BSP_playAudio();</entry>
+      <exit brief="lights-off/play-sound">BSP_ledOff();
+BSP_playAudio();</exit>
+      <!--${AOs::Meditation::SM::get_time::meditation_until~::TIMEOUT}-->
+      <tran trig="TIMEOUT">
+       <action brief="read-time">struct tm t = BSP_getTime();</action>
+       <!--${AOs::Meditation::SM::get_time::meditation_until~::TIMEOUT::[after-7-am]}-->
+       <choice target="../../..">
+        <guard brief="after-7-am">(t.tm_hour &lt; 5) || (t.tm_hour &gt;= 7)</guard>
+        <choice_glyph conn="53,26,4,1,8,25">
+         <action box="3,9,9,3"/>
+        </choice_glyph>
+       </choice>
+       <!--${AOs::Meditation::SM::get_time::meditation_until~::TIMEOUT::[else]}-->
+       <choice>
+        <guard brief="else"/>
+        <choice_glyph conn="53,26,5,-1,5">
+         <action box="7,-1,10,2"/>
+        </choice_glyph>
+       </choice>
+       <!--${AOs::Meditation::SM::get_time::meditation_until~::TIMEOUT::[15/30/45-mins]}-->
+       <choice>
+        <guard brief="15/30/45-mins">// is seconds is 0 or 1 on every 15 mins
+(t.tm_sec &lt;= 1) &amp;&amp;
+    ((t.tm_min == 15) || (t.tm_min == 30) || (t.tm_min == 45))</guard>
+        <action brief="play-audio">BSP_playAudio();</action>
+        <choice_glyph conn="53,26,4,-1,-5,11">
+         <action box="2,-8,22,2"/>
+        </choice_glyph>
+       </choice>
+       <tran_glyph conn="39,26,3,-1,14">
+        <action box="0,-2,11,4"/>
+       </tran_glyph>
+      </tran>
+      <state_glyph node="39,14,38,16">
+       <entry box="1,2,17,2"/>
+       <exit box="1,4,11,2"/>
+      </state_glyph>
+     </state>
+     <state_glyph node="5,10,73,38">
       <entry box="1,2,11,2"/>
       <exit box="1,4,11,2"/>
      </state_glyph>
     </state>
-    <state_diagram size="85,53"/>
+    <state_diagram size="86,66"/>
    </statechart>
   </class>
  </package>

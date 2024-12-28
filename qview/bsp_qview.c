@@ -153,7 +153,7 @@ void BSP_randomSeed(uint32_t seed) {
     l_rnd = seed;
 }
 //............................................................................
-void BSP_getTime(void) {
+struct tm BSP_getTime(void) {
     // application-specific record
     QS_BEGIN_ID(PHILO_STAT, 0U)
         QS_STR(__func__);     // String function
@@ -161,6 +161,8 @@ void BSP_getTime(void) {
         QS_U8(1, l_custom_time.tm_min);         // Minutes
         QS_U8(1, l_custom_time.tm_sec);  // Seconds
     QS_END()
+
+    return l_custom_time;
 }
 //............................................................................
 void BSP_setTime(struct tm newTime) {
@@ -171,6 +173,24 @@ void BSP_setTime(struct tm newTime) {
         QS_U8(1, l_custom_time.tm_hour);         // Hours
         QS_U8(1, l_custom_time.tm_min);         // Minutes
         QS_U8(1, l_custom_time.tm_sec);  // Seconds
+    QS_END()
+}
+//............................................................................
+void BSP_ledOn(void) {
+    QS_BEGIN_ID(PHILO_STAT, 0U)
+        QS_STR(__func__);     // String function
+    QS_END()
+}
+//............................................................................
+void BSP_ledOff(void) {
+    QS_BEGIN_ID(PHILO_STAT, 0U)
+        QS_STR(__func__);     // String function
+    QS_END()
+}
+//............................................................................
+void BSP_playAudio(void) {
+    QS_BEGIN_ID(PHILO_STAT, 0U)
+        QS_STR(__func__);     // String function
     QS_END()
 }
 

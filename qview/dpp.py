@@ -34,6 +34,8 @@ class DPP:
         self.the_time = QView.canvas.create_text(100, 20, 
             text="Time goes here", fill="black", font=('Helvetica 15 bold'))
         
+        self.song_count = QView.canvas.create_text(100, 150, text="song count", fill="black", font=('Helvetica 15 bold'))
+        
         self.btn_get_time = Button(QView.canvas, text="Get time")
         self.get_time = QView.canvas.create_window(100, 55, window = self.btn_get_time, width=100, height=30)
         
@@ -62,7 +64,7 @@ class DPP:
 
     # on_reset() callback
     def on_reset(self):
-        pass
+        self.songs_played = 0
 
     # on_run() callback
     def on_run(self):
@@ -125,7 +127,17 @@ class DPP:
             h = data[2]
             m = data[3]
             s = data[4]
-            QView.canvas.itemconfig(self.the_time, text=f"{h}:{m}:{s}")
+            QView.canvas.itemconfig(self.the_time, text=f"{h:02}:{m:02}:{s:02}")
+        
+        if function == "BSP_ledOn":
+            QView.canvas.itemconfig(self.led, image=self._img_led_on)
+            
+        if function == "BSP_ledOff":
+            QView.canvas.itemconfig(self.led, image=self._img_led_off)
+        
+        if function == "BSP_playAudio":
+            self.songs_played += 1
+            QView.canvas.itemconfig(self.song_count, text=f"Songs Played: {self.songs_played}")
 
 #=============================================================================
 QView.customize(DPP()) # set the QView customization

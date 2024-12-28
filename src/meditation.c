@@ -57,6 +57,7 @@ extern Meditation Meditation_inst;
 // protected:
 static QState Meditation_initial(Meditation * const me, void const * const par);
 static QState Meditation_get_time(Meditation * const me, QEvt const * const e);
+static QState Meditation_meditation_until_7(Meditation * const me, QEvt const * const e);
 //$enddecl${AOs::Meditation} ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 //----------------------------------------------------------------------------
@@ -102,6 +103,7 @@ static QState Meditation_initial(Meditation * const me, void const * const par) 
 
 
     QS_FUN_DICTIONARY(&Meditation_get_time);
+    QS_FUN_DICTIONARY(&Meditation_meditation_until_7);
 
     return Q_TRAN(&Meditation_get_time);
 }
@@ -124,8 +126,15 @@ static QState Meditation_get_time(Meditation * const me, QEvt const * const e) {
         }
         //${AOs::Meditation::SM::get_time::TIMEOUT}
         case TIMEOUT_SIG: {
-            BSP_getTime();
-            status_ = Q_HANDLED();
+            struct tm t = BSP_getTime();
+            //${AOs::Meditation::SM::get_time::TIMEOUT::[between-5-am-and-7-am]}
+            if ((t.tm_hour >= 5) && (t.tm_hour < 7)) {
+                status_ = Q_TRAN(&Meditation_meditation_until_7);
+            }
+            //${AOs::Meditation::SM::get_time::TIMEOUT::[else]}
+            else {
+                status_ = Q_HANDLED();
+            }
             break;
         }
         //${AOs::Meditation::SM::get_time::NEW_TIME}
@@ -143,6 +152,53 @@ static QState Meditation_get_time(Meditation * const me, QEvt const * const e) {
         }
         default: {
             status_ = Q_SUPER(&QHsm_top);
+            break;
+        }
+    }
+    return status_;
+}
+
+//${AOs::Meditation::SM::get_time::meditation_until_7} .......................
+static QState Meditation_meditation_until_7(Meditation * const me, QEvt const * const e) {
+    QState status_;
+    switch (e->sig) {
+        //${AOs::Meditation::SM::get_time::meditation_until_7}
+        case Q_ENTRY_SIG: {
+            BSP_ledOn();
+            BSP_playAudio();
+            status_ = Q_HANDLED();
+            break;
+        }
+        //${AOs::Meditation::SM::get_time::meditation_until_7}
+        case Q_EXIT_SIG: {
+            BSP_ledOff();
+            BSP_playAudio();
+            status_ = Q_HANDLED();
+            break;
+        }
+        //${AOs::Meditation::SM::get_time::meditation_until~::TIMEOUT}
+        case TIMEOUT_SIG: {
+            struct tm t = BSP_getTime();
+            //${AOs::Meditation::SM::get_time::meditation_until~::TIMEOUT::[after-7-am]}
+            if ((t.tm_hour < 5) || (t.tm_hour >= 7)) {
+                status_ = Q_TRAN(&Meditation_get_time);
+            }
+            //${AOs::Meditation::SM::get_time::meditation_until~::TIMEOUT::[15/30/45-mins]}
+            else if (// is seconds is 0 or 1 on every 15 mins
+                     (t.tm_sec <= 1) &&
+                         ((t.tm_min == 15) || (t.tm_min == 30) || (t.tm_min == 45)))
+            {
+                BSP_playAudio();
+                status_ = Q_HANDLED();
+            }
+            //${AOs::Meditation::SM::get_time::meditation_until~::TIMEOUT::[else]}
+            else {
+                status_ = Q_HANDLED();
+            }
+            break;
+        }
+        default: {
+            status_ = Q_SUPER(&Meditation_get_time);
             break;
         }
     }
