@@ -38,6 +38,10 @@
 #include "safe_std.h" // portable "safe" <stdio.h>/<string.h> facilities
 #include <stdlib.h>   // for exit()
 
+#include <time.h>
+
+static struct tm l_custom_time;
+
 Q_DEFINE_THIS_FILE
 
 // Local objects -------------------------------------------------------------
@@ -98,7 +102,7 @@ void BSP_init() {
 //............................................................................
 void BSP_start(void) {
     // initialize event pools
-    static QF_MPOOL_EL(TableEvt) smlPoolSto[2*N_PHILO];
+    static QF_MPOOL_EL(NewTimeEvt) smlPoolSto[10];
     QF_poolInit(smlPoolSto, sizeof(smlPoolSto), sizeof(smlPoolSto[0]));
 
     // initialize publish-subscribe
@@ -106,31 +110,11 @@ void BSP_start(void) {
     QActive_psInit(subscrSto, Q_DIM(subscrSto));
 
     // instantiate and start AOs/threads...
-
-    static QEvt const *philoQueueSto[N_PHILO][10];
-    for (uint8_t n = 0U; n < N_PHILO; ++n) {
-        Philo_ctor(n);
-        QACTIVE_START(AO_Philo[n],
-            n + 3U,                  // QP prio. of the AO
-            philoQueueSto[n],        // event queue storage
-            Q_DIM(philoQueueSto[n]), // queue length [events]
-            (void *)0, 0U,           // no stack storage
-            (void *)0);              // no initialization param
-    }
-
-    static QEvt const *tableQueueSto[N_PHILO];
-    Table_ctor();
-    QACTIVE_START(AO_Table,
-        N_PHILO + 7U,            // QP prio. of the AO
-        tableQueueSto,           // event queue storage
-        Q_DIM(tableQueueSto),    // queue length [events]
-        (void *)0, 0U,           // no stack storage
-        (void *)0);              // no initialization param
     
     static QEvt const *meditationQueSto[2];
     Meditation_ctor();
     QACTIVE_START(AO_Meditation,
-        N_PHILO + 8U,               // QP prio. of the AO
+        1,                          // QP prio. of the AO
         meditationQueSto,           // event queue storage
         Q_DIM(meditationQueSto),    // queue length [events]
         (void *)0, 0U,           // no stack storage
@@ -171,15 +155,23 @@ void BSP_randomSeed(uint32_t seed) {
 //............................................................................
 void BSP_getTime(void) {
     // application-specific record
-    static uint8_t seconds = 0;
     QS_BEGIN_ID(PHILO_STAT, 0U)
         QS_STR(__func__);     // String function
-        QS_U8(1, 12);         // Hours
-        QS_U8(1, 38);         // Minutes
-        QS_U8(1, seconds++);  // Seconds
+        QS_U8(1, l_custom_time.tm_hour);         // Hours
+        QS_U8(1, l_custom_time.tm_min);         // Minutes
+        QS_U8(1, l_custom_time.tm_sec);  // Seconds
     QS_END()
+}
+//............................................................................
+void BSP_setTime(struct tm newTime) {
+    l_custom_time = newTime;
 
-    if (seconds > 59) seconds = 0;
+    QS_BEGIN_ID(PHILO_STAT, 0U)
+        QS_STR(__func__);     // String function
+        QS_U8(1, l_custom_time.tm_hour);         // Hours
+        QS_U8(1, l_custom_time.tm_min);         // Minutes
+        QS_U8(1, l_custom_time.tm_sec);  // Seconds
+    QS_END()
 }
 
 //============================================================================

@@ -48,6 +48,7 @@ enum AppSignals {
     TEST_SIG,       // published by BSP to test the application
     MAX_PUB_SIG,    // the last published signal
 
+    NEW_TIME_SIG,
     TIMEOUT_SIG,    // posted by time event to Philo
     HUNGRY_SIG,     // posted by hungry Philo to Table
     MAX_SIG         // the last signal
@@ -64,6 +65,7 @@ static inline void produce_sig_dict(void) {
 
     QS_SIG_DICTIONARY(TIMEOUT_SIG, (void *)0);
     QS_SIG_DICTIONARY(HUNGRY_SIG,  (void *)0);
+    QS_SIG_DICTIONARY(NEW_TIME_SIG,  (void *)0);
 }
 #endif // def Q_SPY
 
@@ -111,6 +113,17 @@ void Meditation_ctor(void);
 
 //${Shared::AO_Meditation} ...................................................
 extern QActive * const AO_Meditation;
+
+//${Shared::NewTimeEvt} ......................................................
+typedef struct {
+// protected:
+    QEvt super;
+
+// public:
+    uint8_t hours;
+    uint8_t minutes;
+    uint8_t seconds;
+} NewTimeEvt;
 //$enddecl${Shared} ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 #ifdef QXK_H_

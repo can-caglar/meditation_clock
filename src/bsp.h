@@ -32,6 +32,8 @@
 #ifndef BSP_H_
 #define BSP_H_
 
+#include <time.h>
+
 #define BSP_TICKS_PER_SEC    100U
 
 void BSP_init(void);
@@ -46,6 +48,7 @@ uint32_t BSP_random(void); // pseudo-random generator
 void BSP_ledOn(void);
 void BSP_ledOff(void);
 
+void BSP_setTime(struct tm newTime);
 void BSP_getTime(void);
 
 #endif // BSP_H_

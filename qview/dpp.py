@@ -70,18 +70,23 @@ class DPP:
 
         # NOTE: the names of objects for current_obj() must match
         # the QS Object Dictionaries produced by the application.
-        current_obj(OBJ_AO, "Table_inst")
+        current_obj(OBJ_AO, "Meditation_inst")
 
     def on_enter(self, event):
         w = event.widget
         QView.print_text(f"Pressed enter on textbox, with data: {w.get()}")
         
         try:
-            hours, minutes, seconds = w.get().split(":")
+            hours, minutes, seconds = map(int, w.get().split(":"))
             QView.print_text(f"Received time ({hours}:{minutes}:{seconds})")
+            try:
+                post("NEW_TIME_SIG", pack("<BBB", hours, minutes, seconds))
+            except Exception as e:
+                QView.print_text(f"Failed to post: {e}")
+
         except Exception:
             QView.print_text(f"Bad data, needs to be in format hh:mm:ss")
-
+        
         w.delete(0, END)
 
     # example of a custom command

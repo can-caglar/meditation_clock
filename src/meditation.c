@@ -37,6 +37,7 @@
 #include "qpc.h"               // QP/C real-time embedded framework
 #include "dpp.h"               // DPP Application interface
 #include "bsp.h"               // Board Support Package
+#include <time.h>
 
 //$declare${AOs::Meditation} vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 
@@ -57,6 +58,9 @@ extern Meditation Meditation_inst;
 static QState Meditation_initial(Meditation * const me, void const * const par);
 static QState Meditation_get_time(Meditation * const me, QEvt const * const e);
 //$enddecl${AOs::Meditation} ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+//----------------------------------------------------------------------------
+Q_DEFINE_THIS_FILE
 
 //$skip${QP_VERSION} vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 // Check for the minimum required QP version
@@ -121,6 +125,19 @@ static QState Meditation_get_time(Meditation * const me, QEvt const * const e) {
         //${AOs::Meditation::SM::get_time::TIMEOUT}
         case TIMEOUT_SIG: {
             BSP_getTime();
+            status_ = Q_HANDLED();
+            break;
+        }
+        //${AOs::Meditation::SM::get_time::NEW_TIME}
+        case NEW_TIME_SIG: {
+            NewTimeEvt* evt = Q_EVT_CAST(NewTimeEvt);
+            struct tm time;
+
+            time.tm_hour = evt->hours;
+            time.tm_min = evt->minutes;
+            time.tm_sec = evt->seconds;
+
+            BSP_setTime(time);
             status_ = Q_HANDLED();
             break;
         }

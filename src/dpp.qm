@@ -15,6 +15,7 @@
     TEST_SIG,       // published by BSP to test the application
     MAX_PUB_SIG,    // the last published signal
 
+    NEW_TIME_SIG,
     TIMEOUT_SIG,    // posted by time event to Philo
     HUNGRY_SIG,     // posted by hungry Philo to Table
     MAX_SIG         // the last signal
@@ -29,7 +30,8 @@ QS_SIG_DICTIONARY(SERVE_SIG,   (void *)0);
 QS_SIG_DICTIONARY(TEST_SIG,    (void *)0);
 
 QS_SIG_DICTIONARY(TIMEOUT_SIG, (void *)0);
-QS_SIG_DICTIONARY(HUNGRY_SIG,  (void *)0);</code>
+QS_SIG_DICTIONARY(HUNGRY_SIG,  (void *)0);
+QS_SIG_DICTIONARY(NEW_TIME_SIG,  (void *)0);</code>
   </operation>
   <!--${Shared::N_PHILO}-->
   <attribute name="N_PHILO" type="uint8_t" visibility="0x03" properties="0x00">
@@ -93,6 +95,15 @@ QTimeEvt_ctorX(&amp;me-&gt;timeEvt, &amp;me-&gt;super, TIMEOUT_SIG, 0U);</code>
   <attribute name="AO_Meditation" type="QActive * const" visibility="0x00" properties="0x00">
    <code>= &amp;Meditation_inst.super;</code>
   </attribute>
+  <!--${Shared::NewTimeEvt}-->
+  <class name="NewTimeEvt" superclass="qpc::QEvt">
+   <!--${Shared::NewTimeEvt::hours}-->
+   <attribute name="hours" type="uint8_t" visibility="0x00" properties="0x00"/>
+   <!--${Shared::NewTimeEvt::minutes}-->
+   <attribute name="minutes" type="uint8_t" visibility="0x00" properties="0x00"/>
+   <!--${Shared::NewTimeEvt::seconds}-->
+   <attribute name="seconds" type="uint8_t" visibility="0x00" properties="0x00"/>
+  </class>
  </package>
  <!--${AOs}-->
  <package name="AOs" stereotype="0x02">
@@ -462,7 +473,7 @@ me-&gt;fork[n] = FREE;</action>
     QS_OBJ_DICTIONARY(Meditation_timeEvt);
 #endif
 </action>
-     <initial_glyph conn="2,4,5,1,24,9,-4">
+     <initial_glyph conn="2,4,5,0,27,6">
       <action box="0,-2,6,2"/>
      </initial_glyph>
     </initial>
@@ -473,11 +484,25 @@ me-&gt;fork[n] = FREE;</action>
      <!--${AOs::Meditation::SM::get_time::TIMEOUT}-->
      <tran trig="TIMEOUT">
       <action brief="read-time">BSP_getTime();</action>
-      <tran_glyph conn="3,24,3,-1,14">
+      <tran_glyph conn="5,23,3,-1,14">
        <action box="0,-2,11,4"/>
       </tran_glyph>
      </tran>
-     <state_glyph node="3,11,19,19">
+     <!--${AOs::Meditation::SM::get_time::NEW_TIME}-->
+     <tran trig="NEW_TIME">
+      <action>NewTimeEvt* evt = Q_EVT_CAST(NewTimeEvt);
+struct tm time;
+
+time.tm_hour = evt-&gt;hours;
+time.tm_min = evt-&gt;minutes;
+time.tm_sec = evt-&gt;seconds;
+
+BSP_setTime(time);</action>
+      <tran_glyph conn="5,30,3,-1,14">
+       <action box="0,-2,10,2"/>
+      </tran_glyph>
+     </tran>
+     <state_glyph node="5,10,28,25">
       <entry box="1,2,11,2"/>
       <exit box="1,4,11,2"/>
      </state_glyph>
@@ -579,8 +604,12 @@ $define ${AOs::Table}</text>
    <text>#include &quot;qpc.h&quot;               // QP/C real-time embedded framework
 #include &quot;dpp.h&quot;               // DPP Application interface
 #include &quot;bsp.h&quot;               // Board Support Package
+#include &lt;time.h&gt;
 
 $declare ${AOs::Meditation}
+
+//----------------------------------------------------------------------------
+Q_DEFINE_THIS_FILE
 
 $define ${Shared::Meditation_ctor}
 $define ${Shared::AO_Meditation}
