@@ -138,6 +138,7 @@ void BSP_displayPhilStat(uint8_t n, char const *stat) {
 
     // application-specific record
     QS_BEGIN_ID(PHILO_STAT, AO_Table->prio)
+        QS_STR(__func__); // String status
         QS_U8(1, n);  // Philosopher number
         QS_STR(stat); // Philosopher status
     QS_END()
