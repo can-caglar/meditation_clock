@@ -11,6 +11,7 @@ target_sources(app PRIVATE
  src/bsp.c
  src/philo.c
  src/table.c
+ src/meditation.c
 )
 
 # QPC framework directory

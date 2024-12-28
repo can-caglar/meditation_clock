@@ -126,6 +126,15 @@ void BSP_start(void) {
         Q_DIM(tableQueueSto),    // queue length [events]
         (void *)0, 0U,           // no stack storage
         (void *)0);              // no initialization param
+    
+    static QEvt const *meditationQueSto[2];
+    Meditation_ctor();
+    QACTIVE_START(AO_Meditation,
+        N_PHILO + 8U,               // QP prio. of the AO
+        meditationQueSto,           // event queue storage
+        Q_DIM(meditationQueSto),    // queue length [events]
+        (void *)0, 0U,           // no stack storage
+        (void *)0);              // no initialization param
 }
 //............................................................................
 void BSP_terminate(int16_t result) {
@@ -158,6 +167,19 @@ uint32_t BSP_random(void) { // a very cheap pseudo-random-number generator
 //............................................................................
 void BSP_randomSeed(uint32_t seed) {
     l_rnd = seed;
+}
+//............................................................................
+void BSP_getTime(void) {
+    // application-specific record
+    static uint8_t seconds = 0;
+    QS_BEGIN_ID(PHILO_STAT, 0U)
+        QS_STR(__func__);     // String function
+        QS_U8(1, 12);         // Hours
+        QS_U8(1, 38);         // Minutes
+        QS_U8(1, seconds++);  // Seconds
+    QS_END()
+
+    if (seconds > 59) seconds = 0;
 }
 
 //============================================================================

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<model version="5.3.0" links="1">
+<model version="6.2.3" links="1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.state-machine.com/qm/qm.xsd">
  <documentation>Dining Philosopher Problem example</documentation>
  <!--${qpc}-->
  <framework name="qpc"/>
@@ -83,6 +83,16 @@ for (uint8_t n = 0U; n &lt; N_PHILO; ++n) {
     me-&gt;isHungry[n] = false;
 }</code>
   </operation>
+  <!--${Shared::Meditation_ctor}-->
+  <operation name="Meditation_ctor" type="void" visibility="0x00" properties="0x00">
+   <code>Meditation * const me = &amp;Meditation_inst;
+QActive_ctor(&amp;me-&gt;super, Q_STATE_CAST(&amp;Meditation_initial));
+QTimeEvt_ctorX(&amp;me-&gt;timeEvt, &amp;me-&gt;super, TIMEOUT_SIG, 0U);</code>
+  </operation>
+  <!--${Shared::AO_Meditation}-->
+  <attribute name="AO_Meditation" type="QActive * const" visibility="0x00" properties="0x00">
+   <code>= &amp;Meditation_inst.super;</code>
+  </attribute>
  </package>
  <!--${AOs}-->
  <package name="AOs" stereotype="0x02">
@@ -432,6 +442,49 @@ me-&gt;fork[n] = FREE;</action>
     <state_diagram size="50,76"/>
    </statechart>
   </class>
+  <!--${AOs::Meditation}-->
+  <class name="Meditation" superclass="qpc::QActive">
+   <!--${AOs::Meditation::timeEvt}-->
+   <attribute name="timeEvt" type="QTimeEvt" visibility="0x02" properties="0x00"/>
+   <!--${AOs::Meditation::inst}-->
+   <attribute name="inst" type="Meditation" visibility="0x00" properties="0x01"/>
+   <!--${AOs::Meditation::SM}-->
+   <statechart properties="0x02">
+    <!--${AOs::Meditation::SM::initial}-->
+    <initial target="../1">
+     <action>Q_UNUSED_PAR(par);
+
+#ifdef Q_SPY
+    Meditation * Meditation_inst = me;
+    QS_OBJ_DICTIONARY(Meditation_inst);
+
+    QTimeEvt * Meditation_timeEvt = &amp;me-&gt;timeEvt;
+    QS_OBJ_DICTIONARY(Meditation_timeEvt);
+#endif
+</action>
+     <initial_glyph conn="2,4,5,1,24,9,-4">
+      <action box="0,-2,6,2"/>
+     </initial_glyph>
+    </initial>
+    <!--${AOs::Meditation::SM::get_time}-->
+    <state name="get_time">
+     <entry brief="arm-timer">QTimeEvt_armX(&amp;me-&gt;timeEvt, BSP_TICKS_PER_SEC, BSP_TICKS_PER_SEC);</entry>
+     <exit brief="disarm-timer">(void)QTimeEvt_disarm(&amp;me-&gt;timeEvt);</exit>
+     <!--${AOs::Meditation::SM::get_time::TIMEOUT}-->
+     <tran trig="TIMEOUT">
+      <action brief="read-time">BSP_getTime();</action>
+      <tran_glyph conn="3,24,3,-1,14">
+       <action box="0,-2,11,4"/>
+      </tran_glyph>
+     </tran>
+     <state_glyph node="3,11,19,19">
+      <entry box="1,2,11,2"/>
+      <exit box="1,4,11,2"/>
+     </state_glyph>
+    </state>
+    <state_diagram size="85,53"/>
+   </statechart>
+  </class>
  </package>
  <!--${.}-->
  <directory name=".">
@@ -520,6 +573,18 @@ static inline uint8_t left(uint8_t const n) {
 $define ${Shared::Table_ctor}
 $define ${Shared::AO_Table}
 $define ${AOs::Table}</text>
+  </file>
+  <!--${.::meditation.c}-->
+  <file name="meditation.c">
+   <text>#include &quot;qpc.h&quot;               // QP/C real-time embedded framework
+#include &quot;dpp.h&quot;               // DPP Application interface
+#include &quot;bsp.h&quot;               // Board Support Package
+
+$declare ${AOs::Meditation}
+
+$define ${Shared::Meditation_ctor}
+$define ${Shared::AO_Meditation}
+$define ${AOs::Meditation}</text>
   </file>
  </directory>
 </model>

@@ -120,7 +120,7 @@ class DPP:
             h = data[2]
             m = data[3]
             s = data[4]
-            Qview.canvas.itemconfig(self.the_time, text=f"{h}:{m}:{s}")
+            QView.canvas.itemconfig(self.the_time, text=f"{h}:{m}:{s}")
 
 #=============================================================================
 QView.customize(DPP()) # set the QView customization

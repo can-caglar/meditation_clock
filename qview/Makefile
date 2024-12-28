@@ -77,7 +77,8 @@ C_SRCS := \
 	bsp_qview.c \
 	main.c \
 	philo.c \
-	table.c
+	table.c \
+	meditation.c
 
 # C++ source files...
 CPP_SRCS :=
