@@ -38,16 +38,110 @@
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/sys/reboot.h>
 // add other drivers if necessary...
+#include <zephyr/drivers/rtc.h>
+
+#include <zephyr/bluetooth/bluetooth.h>
+#include <zephyr/bluetooth/uuid.h>
+#include <zephyr/bluetooth/gatt.h>
+
+#include <zephyr/drivers/pwm.h>
 
 // The devicetree node identifier for the "led0" alias.
 #define LED0_NODE DT_ALIAS(led0)
+#define LED_EXTERNAL_NODE DT_NODELABEL(led_external)
 
 Q_DEFINE_THIS_FILE
 
 // Local-scope objects -----------------------------------------------------
 static struct gpio_dt_spec const l_led0 = GPIO_DT_SPEC_GET(LED0_NODE, gpios);
+static struct gpio_dt_spec const l_ledExternal = GPIO_DT_SPEC_GET(LED_EXTERNAL_NODE, gpios);
+static const struct pwm_dt_spec piezo_pwm = PWM_DT_SPEC_GET(DT_NODELABEL(buzzer));
+
 static struct k_timer zephyr_tick_timer;
 static uint32_t l_rnd; // random seed
+
+static const struct device* rtc_pcf8563 = DEVICE_DT_GET(DT_NODELABEL(pcf8563t));
+
+/* Custom Service Variables */
+#define BT_UUID_CUSTOM_SERVICE_VAL \
+	BT_UUID_128_ENCODE(0x12345678, 0x1234, 0x5678, 0x1234, 0x56789abcdef0)
+
+static const struct bt_data ad[] = {
+	BT_DATA_BYTES(BT_DATA_FLAGS, (BT_LE_AD_GENERAL | BT_LE_AD_NO_BREDR)),
+	BT_DATA_BYTES(BT_DATA_UUID16_ALL, BT_UUID_16_ENCODE(BT_UUID_CTS_VAL)),
+	BT_DATA_BYTES(BT_DATA_UUID128_ALL, BT_UUID_CUSTOM_SERVICE_VAL),
+};
+
+static const struct bt_data sd[] = {
+	BT_DATA(BT_DATA_NAME_COMPLETE, CONFIG_BT_DEVICE_NAME, sizeof(CONFIG_BT_DEVICE_NAME) - 1),
+};
+
+// Helper functions
+struct Notes
+{
+	uint32_t freq;
+	uint32_t duration_ms;
+};
+
+#define sixteenth ((whole) / 16)
+#define eigth ((whole) / 8)
+#define quarter ((whole) / 4)
+#define half ((whole) / 2)
+#define three_quarters (half + quarter)
+#define whole 600
+#define whole_plus_half (whole + half)
+
+#define PAUSE 0
+#define C4 262
+#define Db4 277
+#define D4 294
+#define Eb4 311
+#define E4 330
+#define F4 349
+#define Gb4 370
+#define G4 392
+#define Ab4 415
+#define A4 440
+#define Bb4 466
+#define B4 494
+#define C5 523
+#define Db5 554
+#define D5 587
+#define Eb5 622
+#define E5 659
+#define F5 698
+#define Gb5 740
+#define G5 784
+#define Ab5 831
+#define A5 880
+#define Bb5 932
+#define B5 988
+#define C6 1046
+#define Db6 1109
+#define D6 1175
+#define Eb6 1245
+#define E6 1319
+#define F6 1397
+
+struct Notes ChurchBells[] = {
+    {PAUSE, whole}, {A4, half}, {A4, half}, {A4, whole}, {E4, half}, {D4, whole_plus_half}, // Intro
+    {G4, half}, {G4, whole}, {E4, whole}, {E4, quarter}, {F4, quarter}, // Main melody
+    {E4, whole}, {E4, half}, {E4, whole}, {C4, whole}, // Variation
+    {D4, whole}, {D4, whole}, // Repetition
+    {C4, whole}, {E4, whole}, // Resolution back to the main motif
+};
+
+struct Notes ASpacemanCameTravelling[] = {
+ 	{F5, whole}, {G5, half}, {F5, half}, {E5, whole},
+ 	{D5, half}, {C5, half}, {D5, whole}, {D5, half},
+ 	{C5, half}, {D5, whole}, {E5, whole},
+
+	{F5, whole}, {G5, half}, {F5, half}, {E5, whole},
+ 	{D5, half}, {C5, half}, {D5, whole},
+};
+
+static void play_tone(uint32_t freq, uint32_t duration_ms);
+static void play_song(struct Notes* song, size_t size);
 
 #ifdef Q_SPY
 
@@ -100,6 +194,23 @@ static void zephyr_tick_function(struct k_timer *tid) {
 void BSP_init(void) {
     int ret = gpio_pin_configure_dt(&l_led0, GPIO_OUTPUT_ACTIVE);
     Q_ASSERT(ret >= 0);
+
+    ret = gpio_pin_configure_dt(&l_ledExternal, GPIO_OUTPUT_INACTIVE);
+    Q_ASSERT(ret >= 0);
+
+    ret = device_is_ready(rtc_pcf8563);
+    Q_ASSERT(ret >= 0);
+
+    ret = pwm_is_ready_dt(&piezo_pwm);
+    Q_ASSERT(ret >= 0);
+
+    ret = bt_enable(NULL);
+    Q_ASSERT(ret >= 0);
+
+	ret = bt_le_adv_start(BT_LE_ADV_CONN, ad, ARRAY_SIZE(ad), sd, ARRAY_SIZE(sd));
+    Q_ASSERT(ret >= 0);
+
+	printk("Advertising successfully started\n");
 
     k_timer_init(&zephyr_tick_timer, &zephyr_tick_function, NULL);
 
@@ -159,11 +270,11 @@ void BSP_start(void) {
 }
 //............................................................................
 void BSP_ledOn(void) {
-    gpio_pin_set_dt(&l_led0, true);
+    gpio_pin_set_dt(&l_ledExternal, true);
 }
 //............................................................................
 void BSP_ledOff(void) {
-    gpio_pin_set_dt(&l_led0, false);
+    gpio_pin_set_dt(&l_ledExternal, false);
 }
 //............................................................................
 void BSP_displayPhilStat(uint8_t n, char const *stat) {
@@ -219,6 +330,52 @@ void BSP_randomSeed(uint32_t seed) {
 //............................................................................
 void BSP_terminate(int16_t result) {
     Q_UNUSED_PAR(result);
+}
+//............................................................................
+K_SEM_DEFINE(audio_sem, 0, 1);
+void play_audio_func(void* param1, void* param2, void* param3) {
+    if (k_sem_take(&audio_sem, K_NO_WAIT) == 0) {
+        // play audio
+        play_song(ASpacemanCameTravelling, ARRAY_SIZE(ASpacemanCameTravelling));
+    }
+}
+
+K_THREAD_DEFINE(play_audio, 1024, play_audio_func, NULL, NULL, NULL, -1, 0, 0);
+void BSP_playAudio(void) {
+    k_sem_give(&audio_sem);
+}
+//............................................................................
+void BSP_setTime(struct tm newTime) {
+
+    struct rtc_time t = {
+		.tm_year = newTime.tm_year,
+		.tm_mon = newTime.tm_mon,
+		.tm_mday = newTime.tm_mday,
+		.tm_hour = newTime.tm_hour,
+		.tm_min = newTime.tm_min,
+		.tm_sec = newTime.tm_sec,
+	};
+
+	int ret = rtc_set_time(rtc_pcf8563, &t);
+    if (ret < 0) {
+        QS_BEGIN_ID(PHILO_STAT, 0U)
+            QS_STR(__func__);     // String function
+            QS_STR("Failed to set time");
+        QS_END()
+    }
+}
+//............................................................................
+struct tm BSP_getTime(void) {
+    struct tm ret = {0};
+    struct rtc_time timeReceived = { 0 };
+
+    rtc_get_time(rtc_pcf8563, &timeReceived);
+
+    ret.tm_hour = timeReceived.tm_hour;
+    ret.tm_min = timeReceived.tm_min;
+    ret.tm_sec = timeReceived.tm_sec;
+
+    return ret;
 }
 
 //============================================================================
@@ -325,3 +482,38 @@ void QS_onCommand(uint8_t cmdId,
 
 #endif // Q_SPY
 
+void play_tone(uint32_t freq, uint32_t duration_ms) {
+
+	// toggle_leds();
+    
+	bool pause = false;
+	if (duration_ms > 30)
+	{
+		duration_ms -= 30;
+		pause = true;
+	}
+
+	if (freq == PAUSE)
+	{
+		pwm_set_dt(&piezo_pwm, PWM_HZ(1000), 1);
+	}
+	else
+	{
+		pwm_set_dt(&piezo_pwm, PWM_HZ(freq), PWM_HZ(freq)/2);
+	}
+	k_sleep(K_MSEC(duration_ms));
+
+	// Turn off the tone
+	pwm_set_dt(&piezo_pwm, PWM_HZ(1000), 1);
+
+	if (pause)
+		k_sleep(K_MSEC(10));
+	
+}
+
+void play_song(struct Notes* song, size_t size) {
+	for (int i = 0; i < size; i++)
+	{
+		play_tone(song[i].freq, song[i].duration_ms);
+	}
+}

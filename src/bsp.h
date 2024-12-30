@@ -48,7 +48,6 @@ uint32_t BSP_random(void); // pseudo-random generator
 void BSP_ledOn(void);
 void BSP_ledOff(void);
 void BSP_playAudio(void);
-
 void BSP_setTime(struct tm newTime);
 struct tm BSP_getTime(void);
 

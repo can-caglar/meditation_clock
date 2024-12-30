@@ -12,6 +12,7 @@ target_sources(app PRIVATE
  src/philo.c
  src/table.c
  src/meditation.c
+ src/cts.c
 )
 
 # QPC framework directory
@@ -24,7 +25,7 @@ set(QPC_DIR ../../..)
 # option to turn QSPY software tracing ON or OFF
 # NOTE: change of the option might require re-building the project
 #
-option(QSPY "QSPY software tracing" OFF)
+option(QSPY "QSPY software tracing" ON)
 
 # QPC framework includes and sources...
 zephyr_include_directories(

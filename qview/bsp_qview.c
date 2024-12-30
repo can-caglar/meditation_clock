@@ -57,6 +57,7 @@ static uint32_t l_rnd; // random seed
     static QSpyId const l_clock_tick = { QS_AP_ID };
 #endif
 
+
 //============================================================================
 Q_NORETURN Q_onError(char const * const module, int_t const id) {
     QS_ASSERTION(module, id, 10000U); // report assertion to QS

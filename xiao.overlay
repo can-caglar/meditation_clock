@@ -1,0 +1,48 @@
+/ {
+    chosen {
+        // was &uart0
+        zephyr,console = &usb_cdc_acm_uart;
+        zephyr,shell-uart = &usb_cdc_acm_uart;
+        zephyr,uart-mcumgr = &usb_cdc_acm_uart;
+        zephyr,bt-mon-uart = &usb_cdc_acm_uart;
+        zephyr,bt-c2h-uart = &usb_cdc_acm_uart;
+    };
+
+    // pwmleds works for a buzzer and seems to be the best option
+    pwmleds {
+        buzzer: buzzer {
+            pwms = <&pwm0 1 20 PWM_POLARITY_NORMAL>;
+        };
+    };
+
+    leds {
+		compatible = "gpio-leds";
+		led_external: led_external {
+			gpios = <&gpio0 2 GPIO_ACTIVE_LOW>;
+			label = "External LED";
+		};
+    };
+};
+
+&usbd {
+	status = "okay";
+};
+
+&pwm0_default {
+	group2 {
+		psels = <NRF_PSEL(PWM_OUT1, 0, 29)>;
+	};
+};
+
+&i2c1 {
+    pcf8563t: pcf8563t@51 {
+        compatible = "nxp,pcf8563";
+        reg = <0x51>;
+        int1-gpios = <&gpio1 12 (GPIO_ACTIVE_LOW | GPIO_OPEN_DRAIN)>;
+    };
+};
+
+&uart0 {
+    //status = "disabled";
+    disable-rx;
+};
