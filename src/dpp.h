@@ -50,6 +50,11 @@ enum AppSignals {
 
     NEW_TIME_SIG,
     START_MEDITATION_SIG,
+    MORNING_MEDITATION_START_SIG,
+    MORNING_MEDITATION_END_SIG,
+    MINUTE_QUARTER_SIG,
+    ON_THE_HOUR_SIG,
+    ALARM_SIG,
     TIMEOUT_SIG,    // posted by time event to Philo
     HUNGRY_SIG,     // posted by hungry Philo to Table
     MAX_SIG         // the last signal
@@ -65,6 +70,10 @@ static inline void produce_sig_dict(void) {
     QS_SIG_DICTIONARY(TEST_SIG,    (void *)0);
 
     QS_SIG_DICTIONARY(START_MEDITATION_SIG, (void *)0);
+    QS_SIG_DICTIONARY(MORNING_MEDITATION_START_SIG, (void *)0);
+    QS_SIG_DICTIONARY(MORNING_MEDITATION_END_SIG, (void *)0);
+    QS_SIG_DICTIONARY(MINUTE_QUARTER_SIG, (void *)0);
+    QS_SIG_DICTIONARY(ON_THE_HOUR_SIG, (void *)0);
     QS_SIG_DICTIONARY(TIMEOUT_SIG, (void *)0);
     QS_SIG_DICTIONARY(HUNGRY_SIG,  (void *)0);
     QS_SIG_DICTIONARY(NEW_TIME_SIG,  (void *)0);

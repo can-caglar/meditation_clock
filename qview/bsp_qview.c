@@ -162,6 +162,8 @@ struct tm BSP_getTime(void) {
         QS_U8(1, l_custom_time.tm_sec);  // Seconds
     QS_END()
 
+    struct tm ret = l_custom_time;
+
     // Increment time each call
     l_custom_time.tm_sec++;
     if (l_custom_time.tm_sec > 59) {
@@ -176,7 +178,7 @@ struct tm BSP_getTime(void) {
         }
     }
 
-    return l_custom_time;
+    return ret;
 }
 //............................................................................
 void BSP_setTime(struct tm newTime) {
