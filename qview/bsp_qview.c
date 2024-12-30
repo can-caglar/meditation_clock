@@ -154,13 +154,27 @@ void BSP_randomSeed(uint32_t seed) {
 }
 //............................................................................
 struct tm BSP_getTime(void) {
-    // application-specific record
+     // application-specific record
     QS_BEGIN_ID(PHILO_STAT, 0U)
         QS_STR(__func__);     // String function
         QS_U8(1, l_custom_time.tm_hour);         // Hours
         QS_U8(1, l_custom_time.tm_min);         // Minutes
         QS_U8(1, l_custom_time.tm_sec);  // Seconds
     QS_END()
+
+    // Increment time each call
+    l_custom_time.tm_sec++;
+    if (l_custom_time.tm_sec > 59) {
+        l_custom_time.tm_sec = 0;
+        l_custom_time.tm_min++;
+        if (l_custom_time.tm_min > 59) {
+            l_custom_time.tm_min = 0;
+            l_custom_time.tm_hour++;
+            if (l_custom_time.tm_hour > 23) {
+                l_custom_time.tm_hour = 0;
+            }
+        }
+    }
 
     return l_custom_time;
 }

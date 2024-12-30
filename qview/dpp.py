@@ -48,8 +48,13 @@ class DPP:
         self.img_DWN = PhotoImage(file=HOME_DIR + "/img/BTN_DWN.gif")
 
         # images of a button for pause/serve
-        self.btn = QView.canvas.create_image(50, 200, image=self.img_UP)
-        QView.canvas.tag_bind(self.btn, "<ButtonPress-1>", self.cust_pause)
+        self.btn_start_meditation = Button(QView.canvas, text="Start Med", command=self.on_start_meditation)
+        self.start_meditation = QView.canvas.create_window(100, 200, 
+            window = self.btn_start_meditation, width=100, height=30)
+
+        self.entry_tick = Entry(QView.canvas, font=("Arial", 14))
+        self.entry_tick.bind("<Return>", self.on_enter_ticker)
+        self.tick_entry = QView.canvas.create_window(320, 20, width=100, height=30, window=self.entry_tick)
 
         # request target reset on startup...
         # NOTE: Normally, for an embedded application you would like
@@ -65,14 +70,16 @@ class DPP:
     # on_reset() callback
     def on_reset(self):
         self.songs_played = 0
-
-    # on_run() callback
-    def on_run(self):
-        glb_filter("QS_USER_00")
+        glb_filter("QS_USER_00", GRP_ALL, "-QS_QF_TICK")
 
         # NOTE: the names of objects for current_obj() must match
         # the QS Object Dictionaries produced by the application.
         current_obj(OBJ_AO, "Meditation_inst")
+        current_obj(OBJ_TE, "Meditation_timeEvt")
+
+    # on_run() callback
+    def on_run(self):
+        pass
 
     def on_enter(self, event):
         w = event.widget
@@ -90,21 +97,28 @@ class DPP:
             QView.print_text(f"Bad data, needs to be in format hh:mm:ss")
         
         w.delete(0, END)
+    
+    def on_enter_ticker(self, event):
+        try:
+            tick_amount = int(event.widget.get())
+            QView.print_text(f"Received tick_amount ({tick_amount})")
+            try:
+                for i in range(tick_amount):
+                    tick()
+            except Exception as e:
+                QView.print_text(f"Failed to tick {e}")
+
+        except Exception:
+            QView.print_text(f"Bad data, needs to be integer.")
+        
+        event.widget.delete(0, END)
+
+    def on_start_meditation(self):
+        post("START_MEDITATION_SIG")
 
     # example of a custom command
     def cust_command(self):
         command(1, 12345)
-
-    # example of a custom interaction with a canvas object (pause/serve)
-    def cust_pause(self, event):
-        if QView.canvas.itemcget(self.btn, "image") != str(self.img_UP):
-            QView.canvas.itemconfig(self.btn, image=self.img_UP)
-            post("SERVE_SIG")
-            QView.print_text("Table SERVING")
-        else:
-            QView.canvas.itemconfig(self.btn, image=self.img_DWN)
-            post("PAUSE_SIG")
-            QView.print_text("Table PAUSED")
 
     # Intercept the QS_USER_00 application-specific trace record.
     # This record has the following structure (see bsp.c:displayPhilStat()):

@@ -58,6 +58,13 @@ extern Meditation Meditation_inst;
 static QState Meditation_initial(Meditation * const me, void const * const par);
 static QState Meditation_get_time(Meditation * const me, QEvt const * const e);
 static QState Meditation_meditation_until_7(Meditation * const me, QEvt const * const e);
+static QState Meditation_meditation_for_90_mins(Meditation * const me, QEvt const * const e);
+static QState Meditation_state30m(Meditation * const me, QEvt const * const e);
+static QState Meditation_state15m(Meditation * const me, QEvt const * const e);
+static QState Meditation_state45m(Meditation * const me, QEvt const * const e);
+static QState Meditation_state60m(Meditation * const me, QEvt const * const e);
+static QState Meditation_state75m(Meditation * const me, QEvt const * const e);
+static QState Meditation_state90m(Meditation * const me, QEvt const * const e);
 //$enddecl${AOs::Meditation} ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 //----------------------------------------------------------------------------
@@ -104,6 +111,13 @@ static QState Meditation_initial(Meditation * const me, void const * const par) 
 
     QS_FUN_DICTIONARY(&Meditation_get_time);
     QS_FUN_DICTIONARY(&Meditation_meditation_until_7);
+    QS_FUN_DICTIONARY(&Meditation_meditation_for_90_mins);
+    QS_FUN_DICTIONARY(&Meditation_state30m);
+    QS_FUN_DICTIONARY(&Meditation_state15m);
+    QS_FUN_DICTIONARY(&Meditation_state45m);
+    QS_FUN_DICTIONARY(&Meditation_state60m);
+    QS_FUN_DICTIONARY(&Meditation_state75m);
+    QS_FUN_DICTIONARY(&Meditation_state90m);
 
     return Q_TRAN(&Meditation_get_time);
 }
@@ -148,6 +162,11 @@ static QState Meditation_get_time(Meditation * const me, QEvt const * const e) {
 
             BSP_setTime(time);
             status_ = Q_HANDLED();
+            break;
+        }
+        //${AOs::Meditation::SM::get_time::START_MEDITATION}
+        case START_MEDITATION_SIG: {
+            status_ = Q_TRAN(&Meditation_meditation_for_90_mins);
             break;
         }
         default: {
@@ -199,6 +218,183 @@ static QState Meditation_meditation_until_7(Meditation * const me, QEvt const * 
         }
         default: {
             status_ = Q_SUPER(&Meditation_get_time);
+            break;
+        }
+    }
+    return status_;
+}
+
+//${AOs::Meditation::SM::get_time::meditation_for_90_mins} ...................
+static QState Meditation_meditation_for_90_mins(Meditation * const me, QEvt const * const e) {
+    QState status_;
+    switch (e->sig) {
+        //${AOs::Meditation::SM::get_time::meditation_for_90_mins}
+        case Q_ENTRY_SIG: {
+            BSP_ledOn();
+            BSP_playAudio();
+            (void)QTimeEvt_disarm(&me->timeEvt);
+            QTimeEvt_armX(&me->timeEvt, BSP_TICKS_PER_SEC * 60 * 15, BSP_TICKS_PER_SEC * 60 * 15);
+            status_ = Q_HANDLED();
+            break;
+        }
+        //${AOs::Meditation::SM::get_time::meditation_for_90_mins}
+        case Q_EXIT_SIG: {
+            BSP_ledOff();
+            QTimeEvt_rearm(&me->timeEvt, BSP_TICKS_PER_SEC);
+            status_ = Q_HANDLED();
+            break;
+        }
+        //${AOs::Meditation::SM::get_time::meditation_for_9~::TIMEOUT}
+        case TIMEOUT_SIG: {
+            status_ = Q_TRAN(&Meditation_state15m);
+            break;
+        }
+        default: {
+            status_ = Q_SUPER(&Meditation_get_time);
+            break;
+        }
+    }
+    return status_;
+}
+
+//${AOs::Meditation::SM::get_time::meditation_for_9~::state30m} ..............
+static QState Meditation_state30m(Meditation * const me, QEvt const * const e) {
+    QState status_;
+    switch (e->sig) {
+        //${AOs::Meditation::SM::get_time::meditation_for_9~::state30m}
+        case Q_ENTRY_SIG: {
+            BSP_playAudio();
+            status_ = Q_HANDLED();
+            break;
+        }
+        //${AOs::Meditation::SM::get_time::meditation_for_9~::state30m::TIMEOUT}
+        case TIMEOUT_SIG: {
+            status_ = Q_TRAN(&Meditation_state45m);
+            break;
+        }
+        default: {
+            status_ = Q_SUPER(&Meditation_meditation_for_90_mins);
+            break;
+        }
+    }
+    return status_;
+}
+
+//${AOs::Meditation::SM::get_time::meditation_for_9~::state15m} ..............
+static QState Meditation_state15m(Meditation * const me, QEvt const * const e) {
+    QState status_;
+    switch (e->sig) {
+        //${AOs::Meditation::SM::get_time::meditation_for_9~::state15m}
+        case Q_ENTRY_SIG: {
+            BSP_playAudio();
+            status_ = Q_HANDLED();
+            break;
+        }
+        //${AOs::Meditation::SM::get_time::meditation_for_9~::state15m::TIMEOUT}
+        case TIMEOUT_SIG: {
+            status_ = Q_TRAN(&Meditation_state30m);
+            break;
+        }
+        default: {
+            status_ = Q_SUPER(&Meditation_meditation_for_90_mins);
+            break;
+        }
+    }
+    return status_;
+}
+
+//${AOs::Meditation::SM::get_time::meditation_for_9~::state45m} ..............
+static QState Meditation_state45m(Meditation * const me, QEvt const * const e) {
+    QState status_;
+    switch (e->sig) {
+        //${AOs::Meditation::SM::get_time::meditation_for_9~::state45m}
+        case Q_ENTRY_SIG: {
+            BSP_playAudio();
+            status_ = Q_HANDLED();
+            break;
+        }
+        //${AOs::Meditation::SM::get_time::meditation_for_9~::state45m::TIMEOUT}
+        case TIMEOUT_SIG: {
+            status_ = Q_TRAN(&Meditation_state60m);
+            break;
+        }
+        default: {
+            status_ = Q_SUPER(&Meditation_meditation_for_90_mins);
+            break;
+        }
+    }
+    return status_;
+}
+
+//${AOs::Meditation::SM::get_time::meditation_for_9~::state60m} ..............
+static QState Meditation_state60m(Meditation * const me, QEvt const * const e) {
+    QState status_;
+    switch (e->sig) {
+        //${AOs::Meditation::SM::get_time::meditation_for_9~::state60m}
+        case Q_ENTRY_SIG: {
+            BSP_playAudio();
+            status_ = Q_HANDLED();
+            break;
+        }
+        //${AOs::Meditation::SM::get_time::meditation_for_9~::state60m::TIMEOUT}
+        case TIMEOUT_SIG: {
+            status_ = Q_TRAN(&Meditation_state75m);
+            break;
+        }
+        default: {
+            status_ = Q_SUPER(&Meditation_meditation_for_90_mins);
+            break;
+        }
+    }
+    return status_;
+}
+
+//${AOs::Meditation::SM::get_time::meditation_for_9~::state75m} ..............
+static QState Meditation_state75m(Meditation * const me, QEvt const * const e) {
+    QState status_;
+    switch (e->sig) {
+        //${AOs::Meditation::SM::get_time::meditation_for_9~::state75m}
+        case Q_ENTRY_SIG: {
+            BSP_playAudio();
+            status_ = Q_HANDLED();
+            break;
+        }
+        //${AOs::Meditation::SM::get_time::meditation_for_9~::state75m::TIMEOUT}
+        case TIMEOUT_SIG: {
+            status_ = Q_TRAN(&Meditation_state90m);
+            break;
+        }
+        default: {
+            status_ = Q_SUPER(&Meditation_meditation_for_90_mins);
+            break;
+        }
+    }
+    return status_;
+}
+
+//${AOs::Meditation::SM::get_time::meditation_for_9~::state90m} ..............
+static QState Meditation_state90m(Meditation * const me, QEvt const * const e) {
+    QState status_;
+    switch (e->sig) {
+        //${AOs::Meditation::SM::get_time::meditation_for_9~::state90m}
+        case Q_ENTRY_SIG: {
+            BSP_playAudio();
+            status_ = Q_HANDLED();
+            break;
+        }
+        //${AOs::Meditation::SM::get_time::meditation_for_9~::state90m}
+        case Q_EXIT_SIG: {
+            BSP_playAudio();
+            status_ = Q_HANDLED();
+            break;
+        }
+        //${AOs::Meditation::SM::get_time::meditation_for_9~::state90m::TIMEOUT}
+        case TIMEOUT_SIG: {
+            status_ = Q_TRAN(&Meditation_get_time);
+            break;
+        }
+        default: {
+            status_ = Q_SUPER(&Meditation_meditation_for_90_mins);
             break;
         }
     }
