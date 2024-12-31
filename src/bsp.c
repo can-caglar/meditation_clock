@@ -192,6 +192,13 @@ static void zephyr_tick_function(struct k_timer *tid) {
 //============================================================================
 
 void BSP_init(void) {
+
+#ifdef Q_SPY
+    // wait a short while to give time for user to 
+    // connect to CDC COM port so QSPY accesses the dictionaries
+    k_sleep(K_MSEC(5000));
+#endif
+
     int ret = gpio_pin_configure_dt(&l_led0, GPIO_OUTPUT_ACTIVE);
     Q_ASSERT(ret >= 0);
 
@@ -210,7 +217,10 @@ void BSP_init(void) {
 	ret = bt_le_adv_start(BT_LE_ADV_CONN, ad, ARRAY_SIZE(ad), sd, ARRAY_SIZE(sd));
     Q_ASSERT(ret >= 0);
 
-	printk("Advertising successfully started\n");
+	QS_BEGIN_ID(PHILO_STAT, 0)
+        QS_STR(__func__);
+        QS_STR("Advertisement started");
+    QS_END()
 
     k_timer_init(&zephyr_tick_timer, &zephyr_tick_function, NULL);
 
@@ -234,8 +244,9 @@ void BSP_init(void) {
 }
 //............................................................................
 void BSP_start(void) {
+
     // initialize event pools
-    static QF_MPOOL_EL(TableEvt) smlPoolSto[2*N_PHILO];
+    static QF_MPOOL_EL(NewTimeEvt) smlPoolSto[10];
     QF_poolInit(smlPoolSto, sizeof(smlPoolSto), sizeof(smlPoolSto[0]));
 
     // initialize publish-subscribe
@@ -244,36 +255,29 @@ void BSP_start(void) {
 
     // instantiate and start AOs/threads...
 
-    static QEvt const *philoQueueSto[N_PHILO][10];
-    static K_THREAD_STACK_DEFINE(philoStack[N_PHILO], 512);
-    for (uint8_t n = 0U; n < N_PHILO; ++n) {
-        Philo_ctor(n);
-        QACTIVE_START(AO_Philo[n],
-            n + 3U,                  // QF-prio. of the AO
-            philoQueueSto[n],        // event queue storage
-            Q_DIM(philoQueueSto[n]), // queue length [events]
-            philoStack[n],           // private stack for embOS
-            K_THREAD_STACK_SIZEOF(philoStack[n]), // stack size [Zephyr]
-            (void *)0);              // no initialization param
-    }
-
-    static QEvt const *tableQueueSto[N_PHILO];
-    static K_THREAD_STACK_DEFINE(tableStack, 1024);
-    Table_ctor();
-    QACTIVE_START(AO_Table,
-        N_PHILO + 7U,            // QP prio. of the AO
-        tableQueueSto,           // event queue storage
-        Q_DIM(tableQueueSto),    // queue length [events]
-        tableStack,              // private stack for embOS
-        K_THREAD_STACK_SIZEOF(tableStack), // stack size [Zephyr]
-        (void *)0);              // no initialization param
+    static QEvt const *meditationQueSto[10];
+    static K_THREAD_STACK_DEFINE(meditationStack, 1024);
+    Meditation_ctor();
+    QACTIVE_START(AO_Meditation,
+        1,                          // QP prio. of the AO
+        meditationQueSto,           // event queue storage
+        Q_DIM(meditationQueSto),    // queue length [events]
+        meditationStack, 
+        K_THREAD_STACK_SIZEOF(meditationStack),
+        (void *)0);                 // no initialization param
 }
 //............................................................................
 void BSP_ledOn(void) {
+    QS_BEGIN_ID(PHILO_STAT, 0)
+        QS_STR(__func__);
+    QS_END()
     gpio_pin_set_dt(&l_ledExternal, true);
 }
 //............................................................................
 void BSP_ledOff(void) {
+    QS_BEGIN_ID(PHILO_STAT, 0)
+        QS_STR(__func__);
+    QS_END()
     gpio_pin_set_dt(&l_ledExternal, false);
 }
 //............................................................................
@@ -334,18 +338,38 @@ void BSP_terminate(int16_t result) {
 //............................................................................
 K_SEM_DEFINE(audio_sem, 0, 1);
 void play_audio_func(void* param1, void* param2, void* param3) {
-    if (k_sem_take(&audio_sem, K_NO_WAIT) == 0) {
-        // play audio
-        play_song(ASpacemanCameTravelling, ARRAY_SIZE(ASpacemanCameTravelling));
+    QS_BEGIN_ID(PHILO_STAT, 0U)
+        QS_STR(__func__);
+    QS_END()
+    for (;;) {
+        k_sem_take(&audio_sem, K_NO_WAIT);  // clear any semaphores raised so unblock just once
+        if (k_sem_take(&audio_sem, K_FOREVER) == 0) {
+            // play audio
+            QS_BEGIN_ID(PHILO_STAT, 0U)
+                QS_STR(__func__);     // String function
+                QS_STR("Playing song.");     // String function
+            QS_END()
+            play_song(ASpacemanCameTravelling, ARRAY_SIZE(ASpacemanCameTravelling));
+        }
     }
 }
+K_THREAD_DEFINE(play_audio, 1024, play_audio_func, NULL, NULL, NULL, CONFIG_NUM_PREEMPT_PRIORITIES-2, 0, 0);
 
-K_THREAD_DEFINE(play_audio, 1024, play_audio_func, NULL, NULL, NULL, -1, 0, 0);
 void BSP_playAudio(void) {
+    QS_BEGIN_ID(PHILO_STAT, 0U)
+        QS_STR(__func__);
+    QS_END()
     k_sem_give(&audio_sem);
 }
 //............................................................................
 void BSP_setTime(struct tm newTime) {
+
+    QS_BEGIN_ID(PHILO_STAT, 0U)
+        QS_STR(__func__);     // String function
+        QS_U8(1, newTime.tm_hour);
+        QS_U8(1, newTime.tm_min);
+        QS_U8(1, newTime.tm_sec);
+    QS_END()
 
     struct rtc_time t = {
 		.tm_year = newTime.tm_year,
@@ -375,13 +399,21 @@ struct tm BSP_getTime(void) {
     ret.tm_min = timeReceived.tm_min;
     ret.tm_sec = timeReceived.tm_sec;
 
+    QS_BEGIN_ID(PHILO_STAT, 0U)
+        QS_STR(__func__);     // String function
+        QS_U8(1, ret.tm_hour);
+        QS_U8(1, ret.tm_min);
+        QS_U8(1, ret.tm_sec);
+    QS_END()
+
     return ret;
 }
 
 //============================================================================
 // QF callbacks...
 void QF_onStartup(void) {
-    k_timer_start(&zephyr_tick_timer, K_MSEC(1), K_MSEC(1));
+    k_timeout_t timeout = K_MSEC(1000.0 / BSP_TICKS_PER_SEC);
+    k_timer_start(&zephyr_tick_timer, timeout, timeout);
     Q_PRINTK("QF_onStartup\n");
 }
 //............................................................................
