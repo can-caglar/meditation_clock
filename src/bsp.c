@@ -76,6 +76,30 @@ static const struct bt_data sd[] = {
 	BT_DATA(BT_DATA_NAME_COMPLETE, CONFIG_BT_DEVICE_NAME, sizeof(CONFIG_BT_DEVICE_NAME) - 1),
 };
 
+/* Custom Service Variables */
+#define BT_UUID_CUSTOM_SERVICE_VAL \
+	BT_UUID_128_ENCODE(0x12345678, 0x1234, 0x5678, 0x1234, 0x56789abcdef0)
+
+static const struct bt_uuid_128 meditation_uuid = BT_UUID_INIT_128(BT_UUID_CUSTOM_SERVICE_VAL);
+
+static const struct bt_uuid_128 meditation_start = BT_UUID_INIT_128(
+	BT_UUID_128_ENCODE(0x12345678, 0x1234, 0x5678, 0x1234, 0x56789abcdef1));
+
+static ssize_t write_meditation_start(struct bt_conn *conn, const struct bt_gatt_attr *attr,
+			 const void *buf, uint16_t len, uint16_t offset,
+			 uint8_t flags){
+
+    static QEvt evt = QEVT_INITIALIZER(START_MEDITATION_SIG);
+    QACTIVE_POST(AO_Meditation, &evt, NULL);
+}
+
+BT_GATT_SERVICE_DEFINE(meditation_service,
+	BT_GATT_PRIMARY_SERVICE(&meditation_uuid),
+	BT_GATT_CHARACTERISTIC(&meditation_start.uuid,
+			       BT_GATT_CHRC_WRITE,
+				   BT_GATT_PERM_WRITE,
+			       NULL, &write_meditation_start, NULL));
+
 // Helper functions
 struct Notes
 {
