@@ -297,31 +297,42 @@ void BSP_terminate(int16_t result) {
     Q_UNUSED_PAR(result);
 }
 //............................................................................
-K_SEM_DEFINE(audio_sem, 0, 1);
+struct AudioData {
+    enum Quarter q;
+    uint8_t hour;
+};
+K_MSGQ_DEFINE(audioq, sizeof(struct AudioData), 1, 1);
 void play_audio_func(void* param1, void* param2, void* param3) {
     QS_BEGIN_ID(PHILO_STAT, 0U)
         QS_STR(__func__);
     QS_END()
+
+    struct AudioData data = { 0 };
     for (;;) {
-        k_sem_take(&audio_sem, K_NO_WAIT);  // clear any semaphores raised so unblock just once
-        if (k_sem_take(&audio_sem, K_FOREVER) == 0) {
+        k_msgq_purge(&audioq);
+        k_msgq_get(&audioq, &data, K_NO_WAIT);
+        if (k_msgq_get(&audioq, &data, K_FOREVER) == 0) {
             // play audio
             QS_BEGIN_ID(PHILO_STAT, 0U)
-                QS_STR(__func__);     // String function
-                QS_STR("Playing song.");     // String function
+                QS_STR(__func__);           // String function
+                QS_STR("Playing song");    // String function
+                QS_U8(1, data.q);           // String function
+                QS_U8(1, data.hour);        // String function
             QS_END()
-            //play_song(ASpacemanCameTravelling);
-            play_church_bell(Fourth, 10);
+            play_church_bell(data.q, data.hour);
         }
     }
 }
 K_THREAD_DEFINE(play_audio, 1024, play_audio_func, NULL, NULL, NULL, CONFIG_NUM_PREEMPT_PRIORITIES-2, 0, 0);
 
-void BSP_playAudio(void) {
+void BSP_playAudio(enum Quarter q, uint8_t hour) {
     QS_BEGIN_ID(PHILO_STAT, 0U)
         QS_STR(__func__);
     QS_END()
-    k_sem_give(&audio_sem);
+    static struct AudioData data;
+    data.q = q;
+    data.hour = hour;
+    k_msgq_put(&audioq, &data, K_NO_WAIT);
 }
 //............................................................................
 void BSP_setTime(struct tm newTime) {

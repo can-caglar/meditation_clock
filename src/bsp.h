@@ -37,6 +37,13 @@
 
 #define BSP_TICKS_PER_SEC    5U
 
+enum Quarter {
+    First = 1,
+    Second,
+    Third,
+    Fourth
+};
+
 void BSP_init(void);
 void BSP_start(void);
 void BSP_displayPaused(uint8_t paused);
@@ -48,7 +55,7 @@ uint32_t BSP_random(void); // pseudo-random generator
 
 void BSP_ledOn(void);
 void BSP_ledOff(void);
-void BSP_playAudio(void);
+void BSP_playAudio(enum Quarter q, uint8_t hour);
 void BSP_setTime(struct tm newTime);
 struct tm BSP_getTime(void);
 

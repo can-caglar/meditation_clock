@@ -3,19 +3,13 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#include "bsp.h"
 
 // Helper functions
 struct Notes
 {
 	uint32_t freq;
 	uint32_t duration_ms;
-};
-
-enum Quarter {
-    First = 1,
-    Second,
-    Third,
-    Fourth
 };
 
 // Songs

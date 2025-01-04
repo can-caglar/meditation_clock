@@ -53,6 +53,8 @@ typedef struct Meditation {
 
 // protected:
     struct tm alarm;
+    uint8_t current_quarter;
+    uint8_t current_hour;
 } Meditation;
 
 extern Meditation Meditation_inst;
@@ -66,11 +68,12 @@ static QState Meditation_initial(Meditation * const me, void const * const par);
 static QState Meditation_get_time(Meditation * const me, QEvt const * const e);
 static QState Meditation_meditation_until_7(Meditation * const me, QEvt const * const e);
 static QState Meditation_meditation_for_90_mins(Meditation * const me, QEvt const * const e);
+static QState Meditation_state15m(Meditation * const me, QEvt const * const e);
 static QState Meditation_state30m(Meditation * const me, QEvt const * const e);
 static QState Meditation_state45m(Meditation * const me, QEvt const * const e);
-static QState Meditation_state60m(Meditation * const me, QEvt const * const e);
-static QState Meditation_state75m(Meditation * const me, QEvt const * const e);
-static QState Meditation_state90m(Meditation * const me, QEvt const * const e);
+static QState Meditation_state1h(Meditation * const me, QEvt const * const e);
+static QState Meditation_stateStart(Meditation * const me, QEvt const * const e);
+static QState Meditation_state1h15m(Meditation * const me, QEvt const * const e);
 //$enddecl${AOs::Meditation} ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 //----------------------------------------------------------------------------
@@ -138,11 +141,12 @@ static QState Meditation_initial(Meditation * const me, void const * const par) 
     QS_FUN_DICTIONARY(&Meditation_get_time);
     QS_FUN_DICTIONARY(&Meditation_meditation_until_7);
     QS_FUN_DICTIONARY(&Meditation_meditation_for_90_mins);
+    QS_FUN_DICTIONARY(&Meditation_state15m);
     QS_FUN_DICTIONARY(&Meditation_state30m);
     QS_FUN_DICTIONARY(&Meditation_state45m);
-    QS_FUN_DICTIONARY(&Meditation_state60m);
-    QS_FUN_DICTIONARY(&Meditation_state75m);
-    QS_FUN_DICTIONARY(&Meditation_state90m);
+    QS_FUN_DICTIONARY(&Meditation_state1h);
+    QS_FUN_DICTIONARY(&Meditation_stateStart);
+    QS_FUN_DICTIONARY(&Meditation_state1h15m);
 
     return Q_TRAN(&Meditation_get_time);
 }
@@ -168,6 +172,9 @@ static QState Meditation_get_time(Meditation * const me, QEvt const * const e) {
         case TIMEOUT_SIG: {
             struct tm t = BSP_getTime();
 
+            me->current_hour = (t.tm_hour == 12) ? 12 : t.tm_hour % 12;
+            me->current_quarter = (t.tm_min == 0) ? 4 : (t.tm_min / 15);
+
             if ((t.tm_hour >= 5) && (t.tm_hour < 7))
             {
                 // morning meditation start
@@ -176,18 +183,12 @@ static QState Meditation_get_time(Meditation * const me, QEvt const * const e) {
             }
 
             if ((t.tm_sec <= 1) &&
-                ((t.tm_min == 15) || (t.tm_min == 30) || (t.tm_min == 45)))
+                ((t.tm_min == 15) || (t.tm_min == 30) || (t.tm_min == 45)) ||
+                ((t.tm_sec <= 1) && (t.tm_min == 0)))
             {
-                // minute_quarter
+                // minute_quarter (0, 15, 30, 45)
                 static QEvt const evt3 = QEVT_INITIALIZER(MINUTE_QUARTER_SIG);
                 QACTIVE_POST(&me->super, &evt3, me);
-            }
-
-            if ((t.tm_sec <= 1) && (t.tm_min == 0))
-            {
-                // on the hour
-                static QEvt const evt4 = QEVT_INITIALIZER(ON_THE_HOUR_SIG);
-                QACTIVE_POST(&me->super, &evt4, me);
             }
 
             if ((t.tm_hour < 5) || (t.tm_hour >= 7))
@@ -265,13 +266,7 @@ static QState Meditation_meditation_until_7(Meditation * const me, QEvt const * 
         }
         //${AOs::Meditation::SM::get_time::meditation_until~::MINUTE_QUARTER}
         case MINUTE_QUARTER_SIG: {
-            BSP_playAudio();
-            status_ = Q_HANDLED();
-            break;
-        }
-        //${AOs::Meditation::SM::get_time::meditation_until~::ON_THE_HOUR}
-        case ON_THE_HOUR_SIG: {
-            BSP_playAudio();
+            BSP_playAudio(me->current_quarter, me->current_hour);
             status_ = Q_HANDLED();
             break;
         }
@@ -295,9 +290,6 @@ static QState Meditation_meditation_for_90_mins(Meditation * const me, QEvt cons
         //${AOs::Meditation::SM::get_time::meditation_for_90_mins}
         case Q_ENTRY_SIG: {
             BSP_ledOn();
-            BSP_playAudio();
-
-            Meditation_alarm_goes_off_in(me, 15*60);
             status_ = Q_HANDLED();
             break;
         }
@@ -307,10 +299,10 @@ static QState Meditation_meditation_for_90_mins(Meditation * const me, QEvt cons
             status_ = Q_HANDLED();
             break;
         }
-        //${AOs::Meditation::SM::get_time::meditation_for_9~::ALARM}
-        case ALARM_SIG: {
+        //${AOs::Meditation::SM::get_time::meditation_for_9~::initial}
+        case Q_INIT_SIG: {
             Meditation_alarm_goes_off_in(me, 15*60);
-            status_ = Q_TRAN(&Meditation_state30m);
+            status_ = Q_TRAN(&Meditation_stateStart);
             break;
         }
         //${AOs::Meditation::SM::get_time::meditation_for_9~::MORNING_MEDITATION_START}
@@ -326,13 +318,37 @@ static QState Meditation_meditation_for_90_mins(Meditation * const me, QEvt cons
     return status_;
 }
 
+//${AOs::Meditation::SM::get_time::meditation_for_9~::state15m} ..............
+static QState Meditation_state15m(Meditation * const me, QEvt const * const e) {
+    QState status_;
+    switch (e->sig) {
+        //${AOs::Meditation::SM::get_time::meditation_for_9~::state15m}
+        case Q_ENTRY_SIG: {
+            BSP_playAudio(First, me->current_hour);
+            status_ = Q_HANDLED();
+            break;
+        }
+        //${AOs::Meditation::SM::get_time::meditation_for_9~::state15m::ALARM}
+        case ALARM_SIG: {
+            Meditation_alarm_goes_off_in(me, 15*60);
+            status_ = Q_TRAN(&Meditation_state30m);
+            break;
+        }
+        default: {
+            status_ = Q_SUPER(&Meditation_meditation_for_90_mins);
+            break;
+        }
+    }
+    return status_;
+}
+
 //${AOs::Meditation::SM::get_time::meditation_for_9~::state30m} ..............
 static QState Meditation_state30m(Meditation * const me, QEvt const * const e) {
     QState status_;
     switch (e->sig) {
         //${AOs::Meditation::SM::get_time::meditation_for_9~::state30m}
         case Q_ENTRY_SIG: {
-            BSP_playAudio();
+            BSP_playAudio(Second, me->current_hour);
             status_ = Q_HANDLED();
             break;
         }
@@ -356,14 +372,14 @@ static QState Meditation_state45m(Meditation * const me, QEvt const * const e) {
     switch (e->sig) {
         //${AOs::Meditation::SM::get_time::meditation_for_9~::state45m}
         case Q_ENTRY_SIG: {
-            BSP_playAudio();
+            BSP_playAudio(Third, me->current_hour);
             status_ = Q_HANDLED();
             break;
         }
         //${AOs::Meditation::SM::get_time::meditation_for_9~::state45m::ALARM}
         case ALARM_SIG: {
             Meditation_alarm_goes_off_in(me, 15*60);
-            status_ = Q_TRAN(&Meditation_state60m);
+            status_ = Q_TRAN(&Meditation_state1h);
             break;
         }
         default: {
@@ -374,20 +390,20 @@ static QState Meditation_state45m(Meditation * const me, QEvt const * const e) {
     return status_;
 }
 
-//${AOs::Meditation::SM::get_time::meditation_for_9~::state60m} ..............
-static QState Meditation_state60m(Meditation * const me, QEvt const * const e) {
+//${AOs::Meditation::SM::get_time::meditation_for_9~::state1h} ...............
+static QState Meditation_state1h(Meditation * const me, QEvt const * const e) {
     QState status_;
     switch (e->sig) {
-        //${AOs::Meditation::SM::get_time::meditation_for_9~::state60m}
+        //${AOs::Meditation::SM::get_time::meditation_for_9~::state1h}
         case Q_ENTRY_SIG: {
-            BSP_playAudio();
+            BSP_playAudio(Fourth, me->current_hour);
             status_ = Q_HANDLED();
             break;
         }
-        //${AOs::Meditation::SM::get_time::meditation_for_9~::state60m::ALARM}
+        //${AOs::Meditation::SM::get_time::meditation_for_9~::state1h::ALARM}
         case ALARM_SIG: {
             Meditation_alarm_goes_off_in(me, 15*60);
-            status_ = Q_TRAN(&Meditation_state75m);
+            status_ = Q_TRAN(&Meditation_state1h15m);
             break;
         }
         default: {
@@ -398,20 +414,20 @@ static QState Meditation_state60m(Meditation * const me, QEvt const * const e) {
     return status_;
 }
 
-//${AOs::Meditation::SM::get_time::meditation_for_9~::state75m} ..............
-static QState Meditation_state75m(Meditation * const me, QEvt const * const e) {
+//${AOs::Meditation::SM::get_time::meditation_for_9~::stateStart} ............
+static QState Meditation_stateStart(Meditation * const me, QEvt const * const e) {
     QState status_;
     switch (e->sig) {
-        //${AOs::Meditation::SM::get_time::meditation_for_9~::state75m}
+        //${AOs::Meditation::SM::get_time::meditation_for_9~::stateStart}
         case Q_ENTRY_SIG: {
-            BSP_playAudio();
+            BSP_playAudio(Fourth, me->current_hour);
             status_ = Q_HANDLED();
             break;
         }
-        //${AOs::Meditation::SM::get_time::meditation_for_9~::state75m::ALARM}
+        //${AOs::Meditation::SM::get_time::meditation_for_9~::stateStart::ALARM}
         case ALARM_SIG: {
             Meditation_alarm_goes_off_in(me, 15*60);
-            status_ = Q_TRAN(&Meditation_state90m);
+            status_ = Q_TRAN(&Meditation_state15m);
             break;
         }
         default: {
@@ -422,23 +438,23 @@ static QState Meditation_state75m(Meditation * const me, QEvt const * const e) {
     return status_;
 }
 
-//${AOs::Meditation::SM::get_time::meditation_for_9~::state90m} ..............
-static QState Meditation_state90m(Meditation * const me, QEvt const * const e) {
+//${AOs::Meditation::SM::get_time::meditation_for_9~::state1h15m} ............
+static QState Meditation_state1h15m(Meditation * const me, QEvt const * const e) {
     QState status_;
     switch (e->sig) {
-        //${AOs::Meditation::SM::get_time::meditation_for_9~::state90m}
+        //${AOs::Meditation::SM::get_time::meditation_for_9~::state1h15m}
         case Q_ENTRY_SIG: {
-            BSP_playAudio();
+            BSP_playAudio(First, me->current_hour);
             status_ = Q_HANDLED();
             break;
         }
-        //${AOs::Meditation::SM::get_time::meditation_for_9~::state90m}
+        //${AOs::Meditation::SM::get_time::meditation_for_9~::state1h15m}
         case Q_EXIT_SIG: {
-            BSP_playAudio();
+            BSP_playAudio(Second, me->current_hour);
             status_ = Q_HANDLED();
             break;
         }
-        //${AOs::Meditation::SM::get_time::meditation_for_9~::state90m::ALARM}
+        //${AOs::Meditation::SM::get_time::meditation_for_9~::state1h15m::ALARM}
         case ALARM_SIG: {
             status_ = Q_TRAN(&Meditation_get_time);
             break;

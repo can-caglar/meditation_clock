@@ -20,7 +20,6 @@
     MORNING_MEDITATION_START_SIG,
     MORNING_MEDITATION_END_SIG,
     MINUTE_QUARTER_SIG,
-    ON_THE_HOUR_SIG,
     ALARM_SIG,
     TIMEOUT_SIG,    // posted by time event to Philo
     HUNGRY_SIG,     // posted by hungry Philo to Table
@@ -39,7 +38,6 @@ QS_SIG_DICTIONARY(START_MEDITATION_SIG, (void *)0);
 QS_SIG_DICTIONARY(MORNING_MEDITATION_START_SIG, (void *)0);
 QS_SIG_DICTIONARY(MORNING_MEDITATION_END_SIG, (void *)0);
 QS_SIG_DICTIONARY(MINUTE_QUARTER_SIG, (void *)0);
-QS_SIG_DICTIONARY(ON_THE_HOUR_SIG, (void *)0);
 QS_SIG_DICTIONARY(TIMEOUT_SIG, (void *)0);
 QS_SIG_DICTIONARY(HUNGRY_SIG,  (void *)0);
 QS_SIG_DICTIONARY(NEW_TIME_SIG,  (void *)0);</code>
@@ -114,6 +112,11 @@ QTimeEvt_ctorX(&amp;me-&gt;timeEvt, &amp;me-&gt;super, TIMEOUT_SIG, 0U);</code>
    <attribute name="minutes" type="uint8_t" visibility="0x00" properties="0x00"/>
    <!--${Shared::NewTimeEvt::seconds}-->
    <attribute name="seconds" type="uint8_t" visibility="0x00" properties="0x00"/>
+  </class>
+  <!--${Shared::QuarterEvt}-->
+  <class name="QuarterEvt" superclass="qpc::QEvt">
+   <!--${Shared::QuarterEvt::quarter}-->
+   <attribute name="quarter" type="uint8_t" visibility="0x00" properties="0x00"/>
   </class>
  </package>
  <!--${AOs}-->
@@ -472,6 +475,10 @@ me-&gt;fork[n] = FREE;</action>
    <attribute name="inst" type="Meditation" visibility="0x00" properties="0x01"/>
    <!--${AOs::Meditation::alarm}-->
    <attribute name="alarm" type="struct tm" visibility="0x01" properties="0x00"/>
+   <!--${AOs::Meditation::current_quarter}-->
+   <attribute name="current_quarter" type="uint8_t" visibility="0x01" properties="0x00"/>
+   <!--${AOs::Meditation::current_hour}-->
+   <attribute name="current_hour" type="uint8_t" visibility="0x01" properties="0x00"/>
    <!--${AOs::Meditation::alarm_goes_off_in}-->
    <operation name="alarm_goes_off_in" type="void" visibility="0x01" properties="0x00">
     <documentation>Add seconds to struct tm</documentation>
@@ -519,6 +526,9 @@ BSP_ledOff();</entry>
      <tran trig="TIMEOUT">
       <action brief="read-time/post-event-to-self">struct tm t = BSP_getTime();
 
+me-&gt;current_hour = (t.tm_hour == 12) ? 12 : t.tm_hour % 12;
+me-&gt;current_quarter = (t.tm_min == 0) ? 4 : (t.tm_min / 15);
+
 if ((t.tm_hour &gt;= 5) &amp;&amp; (t.tm_hour &lt; 7))
 {
     // morning meditation start
@@ -527,18 +537,12 @@ if ((t.tm_hour &gt;= 5) &amp;&amp; (t.tm_hour &lt; 7))
 }
 
 if ((t.tm_sec &lt;= 1) &amp;&amp;
-    ((t.tm_min == 15) || (t.tm_min == 30) || (t.tm_min == 45)))
+    ((t.tm_min == 15) || (t.tm_min == 30) || (t.tm_min == 45)) ||
+    ((t.tm_sec &lt;= 1) &amp;&amp; (t.tm_min == 0)))
 {
-    // minute_quarter
+    // minute_quarter (0, 15, 30, 45)
     static QEvt const evt3 = QEVT_INITIALIZER(MINUTE_QUARTER_SIG);
     QACTIVE_POST(&amp;me-&gt;super, &amp;evt3, me);
-}
-
-if ((t.tm_sec &lt;= 1) &amp;&amp; (t.tm_min == 0))
-{
-    // on the hour
-    static QEvt const evt4 = QEVT_INITIALIZER(ON_THE_HOUR_SIG);
-    QACTIVE_POST(&amp;me-&gt;super, &amp;evt4, me);
 }
 
 if ((t.tm_hour &lt; 5) || (t.tm_hour &gt;= 7))
@@ -565,7 +569,7 @@ if (
      </tran>
      <!--${AOs::Meditation::SM::get_time::NEW_TIME}-->
      <tran trig="NEW_TIME">
-      <action>const NewTimeEvt* evt = Q_EVT_CAST(NewTimeEvt);
+      <action brief="rtc-set">const NewTimeEvt* evt = Q_EVT_CAST(NewTimeEvt);
 struct tm time;
 
 time.tm_hour = evt-&gt;hours;
@@ -574,12 +578,12 @@ time.tm_sec = evt-&gt;seconds;
 
 BSP_setTime(time);</action>
       <tran_glyph conn="5,41,3,-1,14">
-       <action box="0,-2,10,2"/>
+       <action box="0,-2,16,2"/>
       </tran_glyph>
      </tran>
      <!--${AOs::Meditation::SM::get_time::START_MEDITATION}-->
      <tran trig="START_MEDITATION" target="../5">
-      <tran_glyph conn="5,47,3,3,18">
+      <tran_glyph conn="5,47,3,3,17">
        <action box="0,-2,16,2"/>
       </tran_glyph>
      </tran>
@@ -601,16 +605,9 @@ BSP_setTime(time);</action>
       </tran>
       <!--${AOs::Meditation::SM::get_time::meditation_until~::MINUTE_QUARTER}-->
       <tran trig="MINUTE_QUARTER">
-       <action brief="play-audio">BSP_playAudio();</action>
-       <tran_glyph conn="39,22,3,-1,12">
+       <action brief="play-audio">BSP_playAudio(me-&gt;current_quarter, me-&gt;current_hour);</action>
+       <tran_glyph conn="39,23,3,-1,13">
         <action box="0,-2,24,2"/>
-       </tran_glyph>
-      </tran>
-      <!--${AOs::Meditation::SM::get_time::meditation_until~::ON_THE_HOUR}-->
-      <tran trig="ON_THE_HOUR">
-       <action brief="play-audio">BSP_playAudio();</action>
-       <tran_glyph conn="39,25,3,-1,12">
-        <action box="0,-2,22,2"/>
        </tran_glyph>
       </tran>
       <!--${AOs::Meditation::SM::get_time::meditation_until~::MORNING_MEDITATION_START}-->
@@ -626,56 +623,53 @@ BSP_setTime(time);</action>
      </state>
      <!--${AOs::Meditation::SM::get_time::meditation_for_90_mins}-->
      <state name="meditation_for_90_mins">
-      <entry brief="led-on/audio/set-alarm">BSP_ledOn();
-BSP_playAudio();
-
-Meditation_alarm_goes_off_in(me, 15*60);</entry>
+      <entry brief="led-on">BSP_ledOn();</entry>
       <exit brief="led-off">BSP_ledOff();</exit>
-      <!--${AOs::Meditation::SM::get_time::meditation_for_9~::ALARM}-->
-      <tran trig="ALARM" target="../2">
-       <action brief="arm-alarm">Meditation_alarm_goes_off_in(me, 15*60);</action>
-       <tran_glyph conn="23,50,3,3,12">
-        <action box="0,-2,11,4"/>
-       </tran_glyph>
-      </tran>
+      <!--${AOs::Meditation::SM::get_time::meditation_for_9~::initial}-->
+      <initial target="../6">
+       <action brief="set-alarm">Meditation_alarm_goes_off_in(me, 15*60);</action>
+       <initial_glyph conn="25,60,5,2,3,-4">
+        <action box="3,-2,11,3"/>
+       </initial_glyph>
+      </initial>
       <!--${AOs::Meditation::SM::get_time::meditation_for_9~::MORNING_MEDITATION_START}-->
       <tran trig="MORNING_MEDITATION_START">
-       <tran_glyph conn="23,64,3,-1,9">
-        <action box="0,-2,24,2"/>
+       <tran_glyph conn="22,66,3,-1,10">
+        <action box="0,-2,25,2"/>
        </tran_glyph>
       </tran>
-      <!--${AOs::Meditation::SM::get_time::meditation_for_9~::state30m}-->
-      <state name="state30m">
-       <entry brief="audio">BSP_playAudio();</entry>
-       <!--${AOs::Meditation::SM::get_time::meditation_for_9~::state30m::ALARM}-->
+      <!--${AOs::Meditation::SM::get_time::meditation_for_9~::state15m}-->
+      <state name="state15m">
+       <entry brief="audio">BSP_playAudio(First, me-&gt;current_hour);</entry>
+       <!--${AOs::Meditation::SM::get_time::meditation_for_9~::state15m::ALARM}-->
        <tran trig="ALARM" target="../../3">
         <action brief="arm">Meditation_alarm_goes_off_in(me, 15*60);</action>
-        <tran_glyph conn="47,54,1,3,3">
+        <tran_glyph conn="48,54,1,3,4">
          <action box="-10,-1,11,4"/>
         </tran_glyph>
        </tran>
-       <state_glyph node="35,47,12,9">
+       <state_glyph node="37,47,11,9">
+        <entry box="1,2,6,2"/>
+       </state_glyph>
+      </state>
+      <!--${AOs::Meditation::SM::get_time::meditation_for_9~::state30m}-->
+      <state name="state30m">
+       <entry brief="audio">BSP_playAudio(Second, me-&gt;current_hour);</entry>
+       <!--${AOs::Meditation::SM::get_time::meditation_for_9~::state30m::ALARM}-->
+       <tran trig="ALARM" target="../../4">
+        <action brief="arm">Meditation_alarm_goes_off_in(me, 15*60);</action>
+        <tran_glyph conn="63,54,1,3,3">
+         <action box="-10,-1,10,2"/>
+        </tran_glyph>
+       </tran>
+       <state_glyph node="52,47,11,9">
         <entry box="1,2,6,2"/>
        </state_glyph>
       </state>
       <!--${AOs::Meditation::SM::get_time::meditation_for_9~::state45m}-->
       <state name="state45m">
-       <entry brief="audio">BSP_playAudio();</entry>
+       <entry brief="audio">BSP_playAudio(Third, me-&gt;current_hour);</entry>
        <!--${AOs::Meditation::SM::get_time::meditation_for_9~::state45m::ALARM}-->
-       <tran trig="ALARM" target="../../4">
-        <action brief="arm">Meditation_alarm_goes_off_in(me, 15*60);</action>
-        <tran_glyph conn="61,54,1,3,5">
-         <action box="-10,-1,10,2"/>
-        </tran_glyph>
-       </tran>
-       <state_glyph node="50,47,11,9">
-        <entry box="1,2,6,2"/>
-       </state_glyph>
-      </state>
-      <!--${AOs::Meditation::SM::get_time::meditation_for_9~::state60m}-->
-      <state name="state60m">
-       <entry brief="audio">BSP_playAudio();</entry>
-       <!--${AOs::Meditation::SM::get_time::meditation_for_9~::state60m::ALARM}-->
        <tran trig="ALARM" target="../../5">
         <action brief="arm">Meditation_alarm_goes_off_in(me, 15*60);</action>
         <tran_glyph conn="72,56,2,0,2">
@@ -686,39 +680,52 @@ Meditation_alarm_goes_off_in(me, 15*60);</entry>
         <entry box="1,2,6,2"/>
        </state_glyph>
       </state>
-      <!--${AOs::Meditation::SM::get_time::meditation_for_9~::state75m}-->
-      <state name="state75m">
-       <entry brief="audio">BSP_playAudio();</entry>
-       <!--${AOs::Meditation::SM::get_time::meditation_for_9~::state75m::ALARM}-->
-       <tran trig="ALARM" target="../../6">
+      <!--${AOs::Meditation::SM::get_time::meditation_for_9~::state1h}-->
+      <state name="state1h">
+       <entry brief="audio">BSP_playAudio(Fourth, me-&gt;current_hour);</entry>
+       <!--${AOs::Meditation::SM::get_time::meditation_for_9~::state1h::ALARM}-->
+       <tran trig="ALARM" target="../../7">
         <action brief="arm">Meditation_alarm_goes_off_in(me, 15*60);</action>
-        <tran_glyph conn="67,63,3,1,-3">
-         <action box="0,0,10,2"/>
+        <tran_glyph conn="67,63,3,1,-4">
+         <action box="-3,1,12,3"/>
         </tran_glyph>
        </tran>
        <state_glyph node="67,58,12,9">
         <entry box="1,2,6,2"/>
        </state_glyph>
       </state>
-      <!--${AOs::Meditation::SM::get_time::meditation_for_9~::state90m}-->
-      <state name="state90m">
-       <entry brief="audio">BSP_playAudio();</entry>
-       <exit brief="audio">BSP_playAudio();</exit>
-       <!--${AOs::Meditation::SM::get_time::meditation_for_9~::state90m::ALARM}-->
-       <tran trig="ALARM" target="../../..">
-        <action brief="do-nothing"/>
-        <tran_glyph conn="60,67,2,2,11">
-         <action box="-11,-2,15,2"/>
+      <!--${AOs::Meditation::SM::get_time::meditation_for_9~::stateStart}-->
+      <state name="stateStart">
+       <entry brief="audio">BSP_playAudio(Fourth, me-&gt;current_hour);</entry>
+       <!--${AOs::Meditation::SM::get_time::meditation_for_9~::stateStart::ALARM}-->
+       <tran trig="ALARM" target="../../2">
+        <action brief="arm">Meditation_alarm_goes_off_in(me, 15*60);</action>
+        <tran_glyph conn="23,54,3,3,14">
+         <action box="0,-2,11,4"/>
         </tran_glyph>
        </tran>
-       <state_glyph node="48,58,16,9">
+       <state_glyph node="23,47,11,9">
         <entry box="1,2,6,2"/>
-        <exit box="1,4,6,2"/>
        </state_glyph>
       </state>
-      <state_glyph node="23,38,58,32">
-       <entry box="1,2,19,2"/>
-       <exit box="1,4,15,2"/>
+      <!--${AOs::Meditation::SM::get_time::meditation_for_9~::state1h15m}-->
+      <state name="state1h15m">
+       <entry brief="audio">BSP_playAudio(First, me-&gt;current_hour);</entry>
+       <exit brief="audio">BSP_playAudio(Second, me-&gt;current_hour);</exit>
+       <!--${AOs::Meditation::SM::get_time::meditation_for_9~::state1h15m::ALARM}-->
+       <tran trig="ALARM" target="../../..">
+        <tran_glyph conn="57,67,2,2,11">
+         <action box="1,1,11,2"/>
+        </tran_glyph>
+       </tran>
+       <state_glyph node="51,58,12,9">
+        <entry box="1,2,6,2"/>
+        <exit box="1,4,7,3"/>
+       </state_glyph>
+      </state>
+      <state_glyph node="22,38,59,32">
+       <entry box="1,2,14,2"/>
+       <exit box="1,4,13,2"/>
       </state_glyph>
      </state>
      <state_glyph node="5,10,84,68">
@@ -726,7 +733,7 @@ Meditation_alarm_goes_off_in(me, 15*60);</entry>
       <exit box="1,4,11,2"/>
      </state_glyph>
     </state>
-    <state_diagram size="104,80"/>
+    <state_diagram size="104,120"/>
    </statechart>
   </class>
  </package>

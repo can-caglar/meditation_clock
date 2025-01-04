@@ -150,8 +150,12 @@ class DPP:
             QView.canvas.itemconfig(self.led, image=self._img_led_off)
         
         if function == "BSP_playAudio":
+            data = qunpack("xxTxZxBxB", packet)
+            quarter = data[2]
+            hour = data[3]
             self.songs_played += 1
-            QView.canvas.itemconfig(self.song_count, text=f"Songs Played: {self.songs_played}")
+            QView.canvas.itemconfig(self.song_count, 
+                text=f"Songs Played: {self.songs_played}, Latest: q({quarter}), h({hour})")
 
 #=============================================================================
 QView.customize(DPP()) # set the QView customization

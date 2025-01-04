@@ -205,9 +205,11 @@ void BSP_ledOff(void) {
     QS_END()
 }
 //............................................................................
-void BSP_playAudio(void) {
+void BSP_playAudio(enum Quarter q, uint8_t hour) {
     QS_BEGIN_ID(PHILO_STAT, 0U)
         QS_STR(__func__);     // String function
+        QS_U8(1, (uint8_t)q);
+        QS_U8(1, hour);
     QS_END()
 }
 
