@@ -46,6 +46,8 @@
 
 #include <zephyr/drivers/pwm.h>
 
+#include "music.h"
+
 // The devicetree node identifier for the "led0" alias.
 #define LED0_NODE DT_ALIAS(led0)
 #define LED_EXTERNAL_NODE DT_NODELABEL(led_external)
@@ -89,8 +91,10 @@ static ssize_t write_meditation_start(struct bt_conn *conn, const struct bt_gatt
 			 const void *buf, uint16_t len, uint16_t offset,
 			 uint8_t flags){
 
-    static QEvt evt = QEVT_INITIALIZER(START_MEDITATION_SIG);
+    static const QEvt evt = QEVT_INITIALIZER(START_MEDITATION_SIG);
     QACTIVE_POST(AO_Meditation, &evt, NULL);
+
+    return len;
 }
 
 BT_GATT_SERVICE_DEFINE(meditation_service,
@@ -99,73 +103,6 @@ BT_GATT_SERVICE_DEFINE(meditation_service,
 			       BT_GATT_CHRC_WRITE,
 				   BT_GATT_PERM_WRITE,
 			       NULL, &write_meditation_start, NULL));
-
-// Helper functions
-struct Notes
-{
-	uint32_t freq;
-	uint32_t duration_ms;
-};
-
-#define sixteenth ((whole) / 16)
-#define eigth ((whole) / 8)
-#define quarter ((whole) / 4)
-#define half ((whole) / 2)
-#define three_quarters (half + quarter)
-#define whole 600
-#define whole_plus_half (whole + half)
-
-#define PAUSE 0
-#define C4 262
-#define Db4 277
-#define D4 294
-#define Eb4 311
-#define E4 330
-#define F4 349
-#define Gb4 370
-#define G4 392
-#define Ab4 415
-#define A4 440
-#define Bb4 466
-#define B4 494
-#define C5 523
-#define Db5 554
-#define D5 587
-#define Eb5 622
-#define E5 659
-#define F5 698
-#define Gb5 740
-#define G5 784
-#define Ab5 831
-#define A5 880
-#define Bb5 932
-#define B5 988
-#define C6 1046
-#define Db6 1109
-#define D6 1175
-#define Eb6 1245
-#define E6 1319
-#define F6 1397
-
-struct Notes ChurchBells[] = {
-    {PAUSE, whole}, {A4, half}, {A4, half}, {A4, whole}, {E4, half}, {D4, whole_plus_half}, // Intro
-    {G4, half}, {G4, whole}, {E4, whole}, {E4, quarter}, {F4, quarter}, // Main melody
-    {E4, whole}, {E4, half}, {E4, whole}, {C4, whole}, // Variation
-    {D4, whole}, {D4, whole}, // Repetition
-    {C4, whole}, {E4, whole}, // Resolution back to the main motif
-};
-
-struct Notes ASpacemanCameTravelling[] = {
- 	{F5, whole}, {G5, half}, {F5, half}, {E5, whole},
- 	{D5, half}, {C5, half}, {D5, whole}, {D5, half},
- 	{C5, half}, {D5, whole}, {E5, whole},
-
-	{F5, whole}, {G5, half}, {F5, half}, {E5, whole},
- 	{D5, half}, {C5, half}, {D5, whole},
-};
-
-static void play_tone(uint32_t freq, uint32_t duration_ms);
-static void play_song(struct Notes* song, size_t size);
 
 #ifdef Q_SPY
 
@@ -373,7 +310,8 @@ void play_audio_func(void* param1, void* param2, void* param3) {
                 QS_STR(__func__);     // String function
                 QS_STR("Playing song.");     // String function
             QS_END()
-            play_song(ASpacemanCameTravelling, ARRAY_SIZE(ASpacemanCameTravelling));
+            //play_song(ASpacemanCameTravelling);
+            play_church_bell(Fourth, 10);
         }
     }
 }
@@ -431,6 +369,20 @@ struct tm BSP_getTime(void) {
     QS_END()
 
     return ret;
+}
+//............................................................................
+void BSP_sleep(uint32_t milliseconds) {
+    k_sleep(K_MSEC(milliseconds));
+}
+//............................................................................
+void BSP_pwmBuzz(uint32_t frequency) {
+    // 0 to turn off
+    if (frequency == 0) {
+        pwm_set_dt(&piezo_pwm, PWM_HZ(1000), 1);
+    }
+    else {
+        pwm_set_dt(&piezo_pwm, PWM_HZ(frequency), PWM_HZ(frequency)/2);
+    }
 }
 
 //============================================================================
@@ -537,39 +489,3 @@ void QS_onCommand(uint8_t cmdId,
 }
 
 #endif // Q_SPY
-
-void play_tone(uint32_t freq, uint32_t duration_ms) {
-
-	// toggle_leds();
-    
-	bool pause = false;
-	if (duration_ms > 30)
-	{
-		duration_ms -= 30;
-		pause = true;
-	}
-
-	if (freq == PAUSE)
-	{
-		pwm_set_dt(&piezo_pwm, PWM_HZ(1000), 1);
-	}
-	else
-	{
-		pwm_set_dt(&piezo_pwm, PWM_HZ(freq), PWM_HZ(freq)/2);
-	}
-	k_sleep(K_MSEC(duration_ms));
-
-	// Turn off the tone
-	pwm_set_dt(&piezo_pwm, PWM_HZ(1000), 1);
-
-	if (pause)
-		k_sleep(K_MSEC(10));
-	
-}
-
-void play_song(struct Notes* song, size_t size) {
-	for (int i = 0; i < size; i++)
-	{
-		play_tone(song[i].freq, song[i].duration_ms);
-	}
-}

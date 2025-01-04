@@ -33,6 +33,7 @@
 #define BSP_H_
 
 #include <time.h>
+#include <stdint.h>
 
 #define BSP_TICKS_PER_SEC    5U
 
@@ -50,5 +51,8 @@ void BSP_ledOff(void);
 void BSP_playAudio(void);
 void BSP_setTime(struct tm newTime);
 struct tm BSP_getTime(void);
+
+void BSP_sleep(uint32_t milliseconds);
+void BSP_pwmBuzz(uint32_t frequency);
 
 #endif // BSP_H_

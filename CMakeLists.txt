@@ -13,6 +13,7 @@ target_sources(app PRIVATE
  src/table.c
  src/meditation.c
  src/cts.c
+ src/music.c
 )
 
 # QPC framework directory
