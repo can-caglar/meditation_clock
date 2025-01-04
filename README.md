@@ -1,9 +1,7 @@
-# DPP example
+# Meditation Clock
 
 # Overview
-Dining Philosophers Problem (DPP) example with multiple
-active objects.
-
+Meditation clock which chimes bells like the Bakewell Parish Church does and switches on LEDs. It is controlled via BLE.
 
 # Building and Running (Linux)
 Open a terminal in the directory of this example (`qpc/examples/zephry/dpp`).
